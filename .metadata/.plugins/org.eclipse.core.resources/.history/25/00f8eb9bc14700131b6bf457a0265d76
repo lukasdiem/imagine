@@ -1,0 +1,92 @@
+package at.ac.tuwien.caa.cvl.imagine.ui.activity;
+
+import java.io.FileNotFoundException;
+
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.Bundle;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.ActionBarActivity;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.widget.Toast;
+import at.ac.tuwien.caa.cvl.imagine.R;
+import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader;
+import at.ac.tuwien.caa.cvl.imagine.ui.view.PinchableImageView;
+
+public class MainActivity extends ActionBarActivity {
+	private static final String TAG = MainActivity.class.getSimpleName();
+	
+	private static final int INTENT_SELECT_IMAGE = 1;
+	
+	private PinchableImageView imageView;
+	private BitmapLoader bitmapLoader;
+	
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        // Get the image view
+        imageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
+        bitmapLoader = new BitmapLoader();
+    }
+
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_actionbar, menu);
+        return true;
+    }
+    
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.action_open_image: {
+                openImage();
+                return true;
+            }
+            default: {
+                return super.onOptionsItemSelected(item);
+            }
+        }
+    }
+    
+    public void openImage() {
+    	Log.d(TAG, "Open image");
+    	
+    	// Start an image intent
+    	Intent intent = new Intent();
+        intent.setType("image/*");
+        intent.setAction(Intent.ACTION_GET_CONTENT);
+        
+        // Start the intent
+        startActivityForResult(Intent.createChooser(intent, "Select an image via"), INTENT_SELECT_IMAGE);
+    }
+    
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
+    	switch (requestCode) {
+	    	case INTENT_SELECT_IMAGE:
+	    		if(resultCode == RESULT_OK) {      
+	    			Uri selectedImageUri = data.getData();
+	    			
+	    			try {
+						Bitmap downsampledBitmap = BitmapLoader.decodeResizedBitmap(selectedImageUri, imageView.getWidth() * 2, imageView.getHeight() * 2);
+						imageView.setImageBitmap(downsampledBitmap);
+					} catch (FileNotFoundException e) {
+						Log.w(TAG, "Could not load image from: " + selectedImageUri.toString());
+						Toast.makeText(this, "Sorry, couldn't load the image!", Toast.LENGTH_SHORT);
+					}
+	    		} else if (resultCode == RESULT_CANCELED) {
+	    			// Inform the user that he cancelled the image selection
+	    			Toast.makeText(this, "Image selection cancelled.", Toast.LENGTH_SHORT).show();
+	    		}
+	    		break;    		
+    	}
+    }
+}

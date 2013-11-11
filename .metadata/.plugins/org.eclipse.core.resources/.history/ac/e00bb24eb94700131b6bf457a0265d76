@@ -1,0 +1,20 @@
+package at.ac.tuwien.caa.cvl.imagine.image;
+
+import android.content.res.Resources;
+
+public class Image {
+	private int originalWidth;
+	private int originalHeight;
+	private int resampledWidth;
+	private int resampledHeight;
+	
+	private String fullPath;
+	private String filename;
+	
+	private Resources res;
+	private int resId;
+	
+	public Image(Resources res, int resId) {
+		ImageLoader.decodeResizedBitmap(res, resId, targetWidth, targetHeight);
+	}
+}
