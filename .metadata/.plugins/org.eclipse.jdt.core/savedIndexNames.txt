@@ -1,8 +1,0 @@
-INDEX VERSION 1.126+D:\androidImagine\.metadata\.plugins\org.eclipse.jdt.core
-2696500832.index
-1324129860.index
-151999895.index
-1498961081.index
-3777347585.index
-3005558228.index
-3515282563.index

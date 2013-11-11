@@ -1,9 +1,0 @@
-package at.ac.tuwien.caa.cvl.imagine.image;
-
-import android.content.res.Resources;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-
-public class ImageLoader {
-	
-}
