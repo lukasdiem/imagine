@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.PointF;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.widget.ImageView;
@@ -41,6 +42,8 @@ public class PinchableImageView extends ImageView implements
 	float[] initialMatrixValues = new float[9];
 	
 	private RectF viewBounds;
+	private RectF imageBounds;
+	private RectF imageRect;
 	
 	private PointF lastFingerPos = new PointF(); 
 	
@@ -71,6 +74,12 @@ public class PinchableImageView extends ImageView implements
         initialize(context);
     }
 	
+	public PinchableImageView(Context context, AttributeSet attrs, int defStyle) {
+		super(context, attrs, defStyle);
+		
+		initialize(context);
+	}
+	
 	private void initialize(Context context) {
 		// Set the proper on touch listener
 		this.setOnTouchListener(this);
@@ -89,6 +98,8 @@ public class PinchableImageView extends ImageView implements
 		mEdgeEffectBottom = new EdgeEffectCompat(context);
 		mEdgeEffectLeft = new EdgeEffectCompat(context);
 		mEdgeEffectRight = new EdgeEffectCompat(context);
+		
+		imageRect = new RectF();
 		
 		lastGesture = EnumGesture.NONE;
 		
@@ -130,11 +141,21 @@ public class PinchableImageView extends ImageView implements
     	// update the view bounds
         viewBounds = new RectF(0, 0, w, h);
         
-        initialMatrix.set(this.getImageMatrix());
-        initialMatrix.getValues(initialMatrixValues);
+        //initialMatrix.set(this.getImageMatrix());
+        //initialMatrix.getValues(initialMatrixValues);
         
         Log.d(TAG, "Size changed...");
         Log.d(TAG, "Matrix: " + this.getImageMatrix().toString());
+    }
+    
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+    	super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    	
+        initialMatrix.set(this.getImageMatrix());
+        initialMatrix.getValues(initialMatrixValues);
+        
+        Log.d(TAG, "on measure");
     }
 	
 	@Override
@@ -142,12 +163,11 @@ public class PinchableImageView extends ImageView implements
 		Log.d(TAG, "Scale gesture: Scaling, Scale factor: " + detector.getScaleFactor());
 		
 		scale = detector.getScaleFactor();
-		
-		//mMatrix.set(mSavedMatrix);
-		mMatrix.postScale(scale, scale, (float)this.getWidth()/2.0f, (float)this.getHeight()/2.0f);
-		
-		this.setImageMatrix(mMatrix);
-		
+		// scale the image according to the gesture
+		if (scaleImage(scale)) {
+			this.invalidate();
+		}
+				
 		return true;
 	}
 
@@ -167,6 +187,8 @@ public class PinchableImageView extends ImageView implements
 		// Let the gesture detectors inspect all events.
 	    mScaleDetector.onTouchEvent(event);
 	    gestureDetector.onTouchEvent(event);
+	    
+	    boolean needsInvalidate = false;
 		
 	    if (this.getScaleType() != ImageView.ScaleType.MATRIX) {
 	    	this.setScaleType(ImageView.ScaleType.MATRIX);
@@ -185,7 +207,7 @@ public class PinchableImageView extends ImageView implements
 		    		            
 		    case MotionEvent.ACTION_MOVE: { // The user is dragging
 		        if (event.getPointerCount() == 1 && lastGesture == EnumGesture.DRAG) {		        	
-		        	translateImage(event.getX() - lastFingerPos.x, event.getY() - lastFingerPos.y);
+		        	needsInvalidate = translateImage(event.getX() - lastFingerPos.x, event.getY() - lastFingerPos.y);
 		        	
 		        	// Remember this pos
 		        	lastFingerPos.set(event.getX(), event.getY());
@@ -196,70 +218,171 @@ public class PinchableImageView extends ImageView implements
 		        break;
 		    }
 		    
-		    case MotionEvent.ACTION_UP: {
+		    case MotionEvent.ACTION_UP | MotionEvent.ACTION_CANCEL: {
 		    	if (event.getPointerCount() == 0) {
 		    		// Reset the gestures
 		    		lastGesture = EnumGesture.NONE;
-		    		
-		    		if (!mEdgeEffectTop.isFinished())
-		    			mEdgeEffectTop.finish();
-		    		
-		    		if (!mEdgeEffectBottom.isFinished())
-		    			mEdgeEffectBottom.finish();
-		    		
-		    		if (!mEdgeEffectLeft.isFinished())
-		    			mEdgeEffectLeft.finish();
-		    		
-		    		if (!mEdgeEffectRight.isFinished())
-		    			mEdgeEffectRight.finish();
 		    	}
+		    		
+	    		if (!mEdgeEffectTop.onRelease()) {
+	    			needsInvalidate = true;
+	    		}
+	    		
+	    		if (!mEdgeEffectBottom.onRelease()) {
+	    			needsInvalidate = true;
+	    		}
+	    		
+	    		if (!mEdgeEffectLeft.onRelease()) {
+	    			needsInvalidate = true;
+	    		}
+	    		
+	    		if (!mEdgeEffectRight.onRelease()) {
+	    			needsInvalidate = true;
+	    		}
+		    	
 		    }
-	    }       
+	    }
+	    
+	    // Check if we have to invalidate this view
+	    if (needsInvalidate) {
+	    	this.invalidate();
+	    }
 	    
 		return true;
 	}
 	
-	private void translateImage(float deltaX, float deltaY) {
-		//Log.d(TAG, "View bounds: " + viewBounds.toString());
-		
-		//mMatrix.set(this.getImageMatrix());
-		
-		//mMatrix.getValues(values);//
+	private boolean translateImage(float deltaX, float deltaY) {
+		boolean needsInvalidate = false; 
+		boolean translateX = true;
+		boolean translateY = true;
 		
 		// Update the matrix
     	mMatrix.set(this.getImageMatrix());
     	// Get the values as floats
     	mMatrix.getValues(matrixValues);
     	
-    	Log.d(TAG, "Initial scale: " + initialMatrixValues[Matrix.MSCALE_X] + ", " + initialMatrixValues[Matrix.MSCALE_Y]);
-    	Log.d(TAG, "Actual scale:  " + matrixValues[Matrix.MSCALE_X] + ", " + matrixValues[Matrix.MSCALE_Y]);
+    	// Get the position and size of the image with the newly added offset
+    	imageRect.left =  matrixValues[Matrix.MTRANS_X] + deltaX;
+    	imageRect.right =  imageRect.left + getDrawable().getIntrinsicWidth() * matrixValues[Matrix.MSCALE_X];
+    	imageRect.top = matrixValues[Matrix.MTRANS_Y] + deltaY;
+    	imageRect.bottom = imageRect.top + getDrawable().getIntrinsicHeight() * matrixValues[Matrix.MSCALE_Y];
     	
-    	if (matrixValues[Matrix.MSCALE_X] <= initialMatrixValues[Matrix.MSCALE_X] &&
-    			matrixValues[Matrix.MSCALE_Y] <= initialMatrixValues[Matrix.MSCALE_Y]) {
-    		Log.d(TAG, "Image scale matrix smaller than canvas!");
-    		Log.d(TAG, "Delta: " + deltaX + ", " + deltaY);
+    	if (imageRect.left > viewBounds.left) {
+    		Log.d(TAG, "Left boarder inside");
     		
-    		if (deltaX < 0.0f) {
-    			Log.d(TAG, "Test");
-    			mEdgeEffectRight.onPull(50.0f);
-    			//mEdgeEffectRight.setSize(50, (int)viewBounds.height());
-    		} else if (deltaX > 0.0f) {
-    			mEdgeEffectLeft.onPull(Math.abs(deltaX));
+    		// Do not translate further!
+    		if (deltaX > 0) {
+    			translateX = false;
+    			mEdgeEffectLeft.onPull(deltaX);
+    			needsInvalidate = true;
     		}
+    	}
+    	
+    	if (imageRect.right < viewBounds.right) {
+    		Log.d(TAG, "Right boarder inside");
     		
-    		if (deltaY < 0.0f) {
-    			mEdgeEffectBottom.onPull(Math.abs(deltaX));
-    		} else if (deltaY > 0.0f) {
-    			mEdgeEffectTop.onPull(Math.abs(deltaX));
+    		// Do not translate further!
+    		if (deltaX < 0) {
+    			translateX = false;
+    			mEdgeEffectRight.onPull(-deltaX);
+    			needsInvalidate = true;
     		}
+    	}
+    	
+    	if (imageRect.top > viewBounds.top) {
+    		Log.d(TAG, "Top boarder inside");
     		
-    		this.invalidate();
-    	} else {
+    		// Do not translate further!
+    		if (deltaY > 0) {
+    			translateY = false;
+    			mEdgeEffectTop.onPull(deltaY);
+    			needsInvalidate = true;
+    		}
+    	}
+    	
+    	if (imageRect.bottom < viewBounds.bottom) {
+    		Log.d(TAG, "Bottom boarder inside");
+    		
+    		// Do not translate further!
+    		if (deltaY < 0) {
+    			translateY = false;
+    			mEdgeEffectBottom.onPull(-deltaY);
+    			needsInvalidate = true;
+    		}
+    	}
+    	    	
+    	if (translateX || translateY) {
 	    	// Add translation parameters
-	    	mMatrix.postTranslate(deltaX, deltaY);
+	    	if (translateX) {
+	    		mMatrix.postTranslate(deltaX, 0);
+	    	} 
+	    	
+	    	if (translateY) {
+	    		mMatrix.postTranslate(0, deltaY);
+	    	} 
 	    	// Translate the image
 	    	this.setImageMatrix(mMatrix);
     	}
+    	
+    	return needsInvalidate;
+	}
+	
+	private boolean scaleImage(float deltaScale) {
+		boolean needsInvalidate = false;
+		
+		// Update the matrix
+    	mMatrix.set(this.getImageMatrix());
+    	// scale the matrix around the view center
+    	mMatrix.postScale(deltaScale, deltaScale, viewBounds.centerX(), viewBounds.centerY());
+    	    	
+    	// Always allow upscale => we do not have to check anything in this case
+    	if (deltaScale > 1.0f) {
+    		this.setImageMatrix(mMatrix);
+    	} else {
+    		// if we downscale we have to check some conditions
+
+    		// Get the values as floats
+        	mMatrix.getValues(matrixValues);
+        	
+        	// Get the position and size of the image with the newly added offset
+        	imageRect.left =  matrixValues[Matrix.MTRANS_X];
+        	imageRect.right =  imageRect.left + getDrawable().getIntrinsicWidth() * matrixValues[Matrix.MSCALE_X];
+        	imageRect.top = matrixValues[Matrix.MTRANS_Y];
+        	imageRect.bottom = imageRect.top + getDrawable().getIntrinsicHeight() * matrixValues[Matrix.MSCALE_Y];
+    		
+	    	if (!viewBounds.contains(imageRect)) {
+	    		Log.d(TAG, "Downscale - Checking boundary conditions");
+	    		
+	    		if (imageRect.left > viewBounds.left) {
+	        		mMatrix.postTranslate(viewBounds.left - imageRect.left, 0);
+	        	}
+	        	
+	        	if (imageRect.right < viewBounds.right) {
+	        		mMatrix.postTranslate(viewBounds.right - imageRect.right, 0);
+	        	}
+	        	
+	        	if (imageRect.top > viewBounds.top) {
+	        		mMatrix.postTranslate(0, viewBounds.top - imageRect.top);
+	        	}
+	        	
+	        	if (imageRect.bottom < viewBounds.bottom) {
+	        		mMatrix.postTranslate(0, viewBounds.bottom - imageRect.bottom);
+	        	}
+	        	
+	        	// update the image matrix
+	        	this.setImageMatrix(mMatrix);
+	    	} else {
+	    		// minimum scale reached! => indicate this state
+	    		mEdgeEffectLeft.onPull(-deltaScale);
+	    		mEdgeEffectRight.onPull(-deltaScale);
+	    		mEdgeEffectTop.onPull(-deltaScale);
+	    		mEdgeEffectBottom.onPull(-deltaScale);
+    			needsInvalidate = true;
+	    	}
+    	}
+		
+		
+		return needsInvalidate;
 	}
 	
 	
@@ -334,8 +457,12 @@ public class PinchableImageView extends ImageView implements
         public boolean onDoubleTap (MotionEvent event) {
         	Log.d(TAG, "Double tap detected");
 
-        	// Reset the image matrix to the initial matrix
-        	setImageMatrix(initialMatrix);
+        	imageBounds = new RectF(0, 0, getDrawable().getIntrinsicWidth(), getDrawable().getIntrinsicHeight());
+        	
+        	mMatrix.setRectToRect(imageBounds, viewBounds, Matrix.ScaleToFit.CENTER);
+        	
+        	// Reset the image matrix to the newly created center matrix
+        	setImageMatrix(mMatrix);
 
         	
         	return true;
