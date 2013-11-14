@@ -2,11 +2,13 @@ package at.ac.tuwien.caa.cvl.imagine.ui.activity;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v7.app.ActionBar;
@@ -18,6 +20,7 @@ import android.widget.Toast;
 import at.ac.tuwien.caa.cvl.imagine.R;
 import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.PinchableImageView;
+import at.ac.tuwien.caa.cvl.imagine.utils.FileUtils;
 
 public class MainActivity extends ActionBarActivity {
 	private static final String TAG = MainActivity.class.getSimpleName();
@@ -62,8 +65,10 @@ public class MainActivity extends ActionBarActivity {
     public void openImage() {
     	Log.d(TAG, "Open image");
     	    	
-    	imageViewWidth = imageView.getWidth();
-    	imageViewHeight = imageView.getHeight();
+    	imageViewWidth = (int)imageView.getViewBounds().width();
+    	imageViewHeight = (int)imageView.getViewBounds().height();
+    	
+    	//Log.d(TAG, "View size: " + imageViewWidth + ", " + imageViewHeight);
     	
     	// Start an image intent
     	Intent intent = new Intent();
@@ -83,13 +88,38 @@ public class MainActivity extends ActionBarActivity {
 	    			Uri selectedImageUri = data.getData();
 	    			Log.d(TAG, "Image uri: " + selectedImageUri.toString());
 	    			
-	    			try {
-	    				Log.d(TAG, "imgage view size: " + imageViewWidth + "x" + imageViewHeight);
+	    			try {	    				
+	    				// NEVER try to access the imageview here => sometimes it is not loaded => nullpointer
 						Bitmap downsampledBitmap = BitmapLoader.decodeResizedBitmap(this, selectedImageUri, imageViewWidth, imageViewHeight);
 						
-						Log.d(TAG, "Done resizing the image");
+						// Sometimes the image view seems to be cleaned up during the user selects its image => reinitialize it!
+						if (imageView == null) {
+							// Get the image view
+					        imageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
+						}
+						
+						String imagePath = FileUtils.getRealPathFromURI(this, selectedImageUri);
+						
+						float imageOrientation = 0.0f;
+						try {
+							ExifInterface exif = new ExifInterface(imagePath);
+							int exifOrientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, 0);
+														
+							switch (exifOrientation) {
+								case ExifInterface.ORIENTATION_ROTATE_90: imageOrientation = 90.0f;
+									break;
+								case ExifInterface.ORIENTATION_ROTATE_180: imageOrientation = 180.0f;
+									break;
+								case ExifInterface.ORIENTATION_ROTATE_270: imageOrientation = 270.0f;
+									break;
+							}
+						} catch (IOException e) {
+							Log.e(TAG, "Could not read the exif information!");
+							e.printStackTrace();
+						}
 						
 						imageView.setImageBitmap(downsampledBitmap);
+						imageView.setOrientation(imageOrientation);
 					} catch (FileNotFoundException e1) {
 						Log.w(TAG, "Could not load image from: " + selectedImageUri.toString());
 						Toast.makeText(this, "Sorry, couldn't load the image!", Toast.LENGTH_SHORT);

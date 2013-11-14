@@ -25,6 +25,15 @@ public class BitmapLoader {
 	    InputStream imageStream = ctx.getContentResolver().openInputStream(uri);
 	    BitmapFactory.decodeStream(imageStream, null, options);
 	    
+	    // Close the opened stream
+	    try {
+			imageStream.close();
+		} catch (IOException e) {
+			Log.e(TAG, "Could not close the image input stream properly");
+			e.printStackTrace();
+		}
+	    
+	    
 	    Log.d(TAG, "Target size: " + targetWidth + "x" + targetHeight + " px");
 	    Log.d(TAG, "Decoded image size: " + options.outWidth + "x" + options.outHeight + " px");
 	    
@@ -35,7 +44,7 @@ public class BitmapLoader {
 
 	    // Decode bitmap with inSampleSize set
 	    options.inJustDecodeBounds = false;
-	    
+
 	    // Reinitialize the stream
 	    imageStream = ctx.getContentResolver().openInputStream(uri);
 	    

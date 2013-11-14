@@ -8,6 +8,7 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.media.ExifInterface;
 import android.widget.ImageView;
 import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
@@ -35,6 +36,8 @@ public class PinchableImageView extends ImageView implements
 	private EnumGesture lastGesture;
 	
 	private BitmapLoader bitmapLoader;
+	
+	private ExifInterface exif;
 	
 	private Matrix mMatrix = new Matrix();
 	private Matrix initialMatrix = new Matrix();
@@ -106,16 +109,25 @@ public class PinchableImageView extends ImageView implements
 		this.setWillNotDraw(false);
 	}
 
-	/*
+	
 	@Override
     public void setImageBitmap(Bitmap bitmap){
 		super.setImageBitmap(bitmap);
-		
-        initialMatrix.set(this.getImageMatrix());
+				
+		// Recenter the image
+        centerImageInView();
         
         Log.d(TAG, "Set image bitmap called");
     }
 	
+	public void setOrientation(float orientation) {
+		this.setScaleType(ScaleType.MATRIX);
+		mMatrix.set(this.getImageMatrix());
+		mMatrix.postRotate(orientation, this.getWidth()/2, this.getHeight()/2);
+		this.setImageMatrix(mMatrix);
+	}
+	
+	/*
 	@Override
 	public void setImageDrawable(Drawable drawable) {
 		//super.setImageDrawable(drawable);
@@ -152,8 +164,8 @@ public class PinchableImageView extends ImageView implements
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
     	super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     	
-        initialMatrix.set(this.getImageMatrix());
-        initialMatrix.getValues(initialMatrixValues);
+        //initialMatrix.set(this.getImageMatrix());
+        //initialMatrix.getValues(initialMatrixValues);
         
         Log.d(TAG, "on measure");
     }
@@ -383,6 +395,21 @@ public class PinchableImageView extends ImageView implements
 		
 		
 		return needsInvalidate;
+	}
+	
+	public void centerImageInView() {
+    	imageBounds = new RectF(0, 0, getDrawable().getIntrinsicWidth(), getDrawable().getIntrinsicHeight());
+    	
+    	if (viewBounds == null) {
+    		viewBounds = new RectF(0, 0, this.getWidth(), this.getHeight());
+    	}
+    	
+    	mMatrix.setRectToRect(imageBounds, viewBounds, Matrix.ScaleToFit.CENTER);
+    	
+    	// Reset the image matrix to the newly created center matrix
+    	setImageMatrix(mMatrix);
+    	
+    	this.invalidate();
 	}
 	
 	
