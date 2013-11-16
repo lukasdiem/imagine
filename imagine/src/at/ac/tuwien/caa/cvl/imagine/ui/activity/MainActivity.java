@@ -4,23 +4,26 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.InstallCallbackInterface;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
-
+import android.annotation.SuppressLint;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.ViewTreeObserver;
+import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.widget.Toast;
 import at.ac.tuwien.caa.cvl.imagine.R;
 import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader;
@@ -114,52 +117,66 @@ public class MainActivity extends ActionBarActivity  {
         startActivityForResult(Intent.createChooser(intent, "Select an image via"), INTENT_SELECT_IMAGE);
     }
     
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    @SuppressLint("NewApi")
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     	Log.d(TAG, "Intent result received!"); 
 
     	switch (requestCode) {
 	    	case INTENT_SELECT_IMAGE:
 	    		if(resultCode == RESULT_OK) {      
-	    			Uri selectedImageUri = data.getData();
+	    			final Uri selectedImageUri = data.getData();
 	    			Log.d(TAG, "Image uri: " + selectedImageUri.toString());
 	    			
-	    			try {	    				
-	    				// NEVER try to access the imageview here => sometimes it is not loaded => nullpointer
-						Bitmap downsampledBitmap = BitmapLoader.decodeResizedBitmap(this, selectedImageUri, imageViewWidth, imageViewHeight);
-						
-						// Sometimes the image view seems to be cleaned up during the user selects its image => reinitialize it!
-						if (imageView == null) {
-							// Get the image view
-					        imageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
-						}
-						
-						String imagePath = FileUtils.getRealPathFromURI(this, selectedImageUri);
-						
-						float imageOrientation = 0.0f;
-						try {
-							ExifInterface exif = new ExifInterface(imagePath);
-							int exifOrientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, 0);
-														
-							switch (exifOrientation) {
-								case ExifInterface.ORIENTATION_ROTATE_90: imageOrientation = 90.0f;
-									break;
-								case ExifInterface.ORIENTATION_ROTATE_180: imageOrientation = 180.0f;
-									break;
-								case ExifInterface.ORIENTATION_ROTATE_270: imageOrientation = 270.0f;
-									break;
-							}
-						} catch (IOException e) {
-							Log.e(TAG, "Could not read the exif information!");
-							e.printStackTrace();
-						}
-						
-						imageView.setImageBitmap(downsampledBitmap);
-						imageView.setImageRotation(imageOrientation);
-					} catch (FileNotFoundException e1) {
-						Log.w(TAG, "Could not load image from: " + selectedImageUri.toString());
-						Toast.makeText(this, "Sorry, couldn't load the image!", Toast.LENGTH_SHORT);
-					}
-	    			
+    				    				
+    				// Sometimes the image view seems to be cleaned up during the user selects its image => reinitialize it!
+					// Get the image view
+				    final PinchableImageView finalImageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
+					final Context callerContext = this; 
+				    
+				    ViewTreeObserver vto = finalImageView.getViewTreeObserver();
+				    vto.addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
+
+				        @Override
+				        public void onGlobalLayout() {
+				        	try {
+					        	// NEVER try to access the imageview here => sometimes it is not loaded => nullpointer
+								Bitmap downsampledBitmap = BitmapLoader.decodeResizedBitmap(callerContext, 
+										selectedImageUri, finalImageView.getWidth(), finalImageView.getHeight());
+								
+								String imagePath = FileUtils.getRealPathFromURI(callerContext, selectedImageUri);
+								
+								float imageOrientation = 0.0f;
+								ExifInterface exif = new ExifInterface(imagePath);
+								int exifOrientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, 0);
+															
+								switch (exifOrientation) {
+									case ExifInterface.ORIENTATION_ROTATE_90: imageOrientation = 90.0f;
+										break;
+									case ExifInterface.ORIENTATION_ROTATE_180: imageOrientation = 180.0f;
+										break;
+									case ExifInterface.ORIENTATION_ROTATE_270: imageOrientation = 270.0f;
+										break;
+								}
+								
+								imageView.setImageBitmap(downsampledBitmap);
+								imageView.setImageRotation(imageOrientation);
+							} catch (FileNotFoundException e1) {
+								Log.w(TAG, "Could not load image from: " + selectedImageUri.toString());
+								Toast.makeText(callerContext, "Sorry, couldn't load the image!", Toast.LENGTH_SHORT).show();
+							} catch (IOException e) {
+								Log.e(TAG, "Could not read the exif information!");
+								e.printStackTrace();
+							} 
+				        	
+				            ViewTreeObserver obs = finalImageView.getViewTreeObserver();
+				            // Remove the view tree observer such that is not called again
+				            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+				                obs.removeOnGlobalLayoutListener(this);
+				            } else {
+				                obs.removeGlobalOnLayoutListener(this);
+				            }
+				        }
+				    });
 	    		} else if (resultCode == RESULT_CANCELED) {
 	    			// Inform the user that he cancelled the image selection
 	    			Toast.makeText(this, "Image selection cancelled.", Toast.LENGTH_SHORT).show();
