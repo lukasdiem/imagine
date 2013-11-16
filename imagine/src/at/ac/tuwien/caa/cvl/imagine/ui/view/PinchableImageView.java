@@ -1,12 +1,18 @@
 package at.ac.tuwien.caa.cvl.imagine.ui.view;
 
+import org.opencv.android.Utils;
+import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
+
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
+import android.graphics.Matrix.ScaleToFit;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.media.ExifInterface;
 import android.widget.ImageView;
@@ -63,7 +69,7 @@ public class PinchableImageView extends ImageView implements
 
 	
 	private float scale = 1.0f;
-
+	private float rotation = 0;
 		
 	public PinchableImageView(Context context) {
 		super(context);
@@ -120,10 +126,12 @@ public class PinchableImageView extends ImageView implements
         Log.d(TAG, "Set image bitmap called");
     }
 	
-	public void setOrientation(float orientation) {
+	public void setImageRotation(float rotation) {
 		this.setScaleType(ScaleType.MATRIX);
+		
+		this.rotation = rotation;		
 		mMatrix.set(this.getImageMatrix());
-		mMatrix.postRotate(orientation, this.getWidth()/2, this.getHeight()/2);
+		mMatrix.postRotate(rotation, this.getWidth()/2, this.getHeight()/2);
 		this.setImageMatrix(mMatrix);
 	}
 	
@@ -166,7 +174,7 @@ public class PinchableImageView extends ImageView implements
     	
         //initialMatrix.set(this.getImageMatrix());
         //initialMatrix.getValues(initialMatrixValues);
-        
+    	
         Log.d(TAG, "on measure");
     }
 	
@@ -346,6 +354,7 @@ public class PinchableImageView extends ImageView implements
     	mMatrix.set(this.getImageMatrix());
     	// scale the matrix around the view center
     	mMatrix.postScale(deltaScale, deltaScale, viewBounds.centerX(), viewBounds.centerY());
+    	//mMatrix.postScale(deltaScale, deltaScale);
     	    	
     	// Always allow upscale => we do not have to check anything in this case
     	if (deltaScale > 1.0f) {
@@ -365,25 +374,31 @@ public class PinchableImageView extends ImageView implements
 	    	if (!viewBounds.contains(imageRect)) {
 	    		Log.d(TAG, "Downscale - Checking boundary conditions");
 	    		
-	    		if (imageRect.left > viewBounds.left) {
-	        		mMatrix.postTranslate(viewBounds.left - imageRect.left, 0);
-	        	}
+	    		if (!(imageRect.left >= viewBounds.left && imageRect.right <= viewBounds.right)) {
+		    		if (imageRect.left > viewBounds.left) {
+		        		mMatrix.postTranslate(viewBounds.left - imageRect.left, 0);
+		        	}
+		        	
+		        	if (imageRect.right < viewBounds.right) {
+		        		mMatrix.postTranslate(viewBounds.right - imageRect.right, 0);
+		        	}
+	    		}
 	        	
-	        	if (imageRect.right < viewBounds.right) {
-	        		mMatrix.postTranslate(viewBounds.right - imageRect.right, 0);
-	        	}
-	        	
-	        	if (imageRect.top > viewBounds.top) {
-	        		mMatrix.postTranslate(0, viewBounds.top - imageRect.top);
-	        	}
-	        	
-	        	if (imageRect.bottom < viewBounds.bottom) {
-	        		mMatrix.postTranslate(0, viewBounds.bottom - imageRect.bottom);
-	        	}
+	    		if (!(imageRect.top >= viewBounds.top && imageRect.bottom <= viewBounds.bottom)) {
+		        	if (imageRect.top > viewBounds.top) {
+		        		mMatrix.postTranslate(0, viewBounds.top - imageRect.top);
+		        	}
+		        	
+		        	if (imageRect.bottom < viewBounds.bottom) {
+		        		mMatrix.postTranslate(0, viewBounds.bottom - imageRect.bottom);
+		        	}
+	    		}
 	        	
 	        	// update the image matrix
 	        	this.setImageMatrix(mMatrix);
 	    	} else {
+	    		this.centerImageInView();
+	    		
 	    		// minimum scale reached! => indicate this state
 	    		mEdgeEffectLeft.onPull(-deltaScale);
 	    		mEdgeEffectRight.onPull(-deltaScale);
@@ -398,13 +413,15 @@ public class PinchableImageView extends ImageView implements
 	}
 	
 	public void centerImageInView() {
-    	imageBounds = new RectF(0, 0, getDrawable().getIntrinsicWidth(), getDrawable().getIntrinsicHeight());
+		this.setScaleType(ScaleType.MATRIX);
+		imageBounds = new RectF(0, 0, getDrawable().getIntrinsicWidth(), getDrawable().getIntrinsicHeight());
     	
     	if (viewBounds == null) {
     		viewBounds = new RectF(0, 0, this.getWidth(), this.getHeight());
     	}
     	
     	mMatrix.setRectToRect(imageBounds, viewBounds, Matrix.ScaleToFit.CENTER);
+    	//mMatrix.postRotate(rotation, viewBounds.centerX(), viewBounds.centerY());
     	
     	// Reset the image matrix to the newly created center matrix
     	setImageMatrix(mMatrix);
@@ -495,6 +512,24 @@ public class PinchableImageView extends ImageView implements
         	return true;
         }
         
+        @Override
+     	public boolean onSingleTapConfirmed(MotionEvent e) {
+        	Log.d(TAG, "single tap detected");
+        	
+        	Mat imageMat = new Mat();
+        	Bitmap imageBitmap = ((BitmapDrawable)getDrawable()).getBitmap();
+        	Utils.bitmapToMat(imageBitmap, imageMat);
+        	Imgproc.cvtColor(imageMat, imageMat, Imgproc.COLOR_BGR2GRAY);
+        	//Imgproc.GaussianBlur(imageMat, imageMat, new Size(3, 3), 0);
+        	//Imgproc.adaptiveThreshold(imageMat, imageMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY_INV, 5, 4);
+        	Utils.matToBitmap(imageMat, imageBitmap);
+        	// Cleanup
+        	imageMat.release();
+        	// Invalidate the view => redraw!
+        	invalidate();
+        	
+        	return true;
+        }
     }
 
 

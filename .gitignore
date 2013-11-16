@@ -1,0 +1,19 @@
+.metadata
+
+android-support-v7-appcompat
+
+/imagine/bin
+
+res
+AndroidManifest.xml
+classes.dex
+imagine.apk
+jarlist.cache
+R.txt
+resources.ap_
+classes
+dexedLibs
+
+OpenCV Library - 2.4.6
+
+OpenCV2-4-6
