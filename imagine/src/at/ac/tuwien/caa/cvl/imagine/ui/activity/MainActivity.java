@@ -59,9 +59,10 @@ public class MainActivity extends ActionBarActivity  {
 	                HistogramView histView = (HistogramView) findViewById(R.id.histView);
 	                
 	                if (histView != null) {
-		                Bitmap bitmap = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
-		                Mat imageMat = new Mat(bitmap.getWidth(), bitmap.getHeight(), CvType.CV_8U);
-		                Utils.bitmapToMat(bitmap, imageMat);
+	                	Bitmap imageBitmap = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
+	                	Mat imageMat = new Mat(imageBitmap.getWidth(), imageBitmap.getHeight(), CvType.CV_8UC3);
+	                	Utils.bitmapToMat(imageBitmap, imageMat);
+		                		                
 		                histView.setImageMat(imageMat);
 	                }
 	                
