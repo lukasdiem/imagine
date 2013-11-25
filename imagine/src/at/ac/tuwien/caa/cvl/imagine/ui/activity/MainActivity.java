@@ -4,15 +4,22 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.InstallCallbackInterface;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
+
 import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
@@ -27,6 +34,7 @@ import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.widget.Toast;
 import at.ac.tuwien.caa.cvl.imagine.R;
 import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader;
+import at.ac.tuwien.caa.cvl.imagine.ui.view.HistogramView;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.PinchableImageView;
 import at.ac.tuwien.caa.cvl.imagine.utils.FileUtils;
 
@@ -46,6 +54,17 @@ public class MainActivity extends ActionBarActivity  {
 	            case LoaderCallbackInterface.SUCCESS:
 	            {
 	                Log.i(TAG, "OpenCV loaded successfully");
+	                
+	                // Get the histogram view
+	                HistogramView histView = (HistogramView) findViewById(R.id.histView);
+	                
+	                if (histView != null) {
+		                Bitmap bitmap = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
+		                Mat imageMat = new Mat(bitmap.getWidth(), bitmap.getHeight(), CvType.CV_8U);
+		                Utils.bitmapToMat(bitmap, imageMat);
+		                histView.setImageMat(imageMat);
+	                }
+	                
 	            } break;
 	            default:
 	            {
