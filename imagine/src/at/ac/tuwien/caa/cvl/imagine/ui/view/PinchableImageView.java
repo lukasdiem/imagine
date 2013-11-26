@@ -27,10 +27,12 @@ import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.View.OnTouchListener;
 import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader;
+import at.ac.tuwien.caa.cvl.imagine.image.ImImage;
+import at.ac.tuwien.caa.cvl.imagine.image.OnImageChangedListener;
 
 public class PinchableImageView extends ImageView implements 
 		ScaleGestureDetector.OnScaleGestureListener, 
-		OnTouchListener {
+		OnTouchListener, OnImageChangedListener {
 	
 	private static final String TAG = PinchableImageView.class.getSimpleName(); 
 	
@@ -38,13 +40,11 @@ public class PinchableImageView extends ImageView implements
 	private static enum EnumGesture {
 		NONE, ZOOM, DRAG
 	}
-	
+		
 	private EnumGesture lastGesture;
 	
-	private BitmapLoader bitmapLoader;
-	
-	private ExifInterface exif;
-	
+	private ImImage image;
+
 	private Matrix mMatrix = new Matrix();
 	private Matrix initialMatrix = new Matrix();
 	float[] matrixValues = new float[9];
@@ -97,11 +97,6 @@ public class PinchableImageView extends ImageView implements
 		mScaleDetector = new ScaleGestureDetector(context, this);
 		gestureDetector = new GestureDetector(context, new MyGestureListener());
 		
-		bitmapLoader = new BitmapLoader();
-		
-		// Initialize the initial image matrix
-		//initialMatrix = this.getImageMatrix();
-		
 		// Initialize the edge effect classes needed to deal with overscroll effects
 		mEdgeEffectTop = new EdgeEffectCompat(context);
 		mEdgeEffectBottom = new EdgeEffectCompat(context);
@@ -114,7 +109,19 @@ public class PinchableImageView extends ImageView implements
 		
 		this.setWillNotDraw(false);
 	}
+	
+	public ImImage getImage() {
+		return image;
+	}
 
+	public void setImage(ImImage image) {
+		Log.d(TAG, "New image class is set!");
+		
+		this.image = image;
+		
+		// Set myself to listen to events of this image class!
+		image.addOnImageChangedListener(this);
+	}
 	
 	@Override
     public void setImageBitmap(Bitmap bitmap){
@@ -180,7 +187,7 @@ public class PinchableImageView extends ImageView implements
 	
 	@Override
 	public boolean onScale(ScaleGestureDetector detector) {
-		Log.d(TAG, "Scale gesture: Scaling, Scale factor: " + detector.getScaleFactor());
+		//Log.d(TAG, "Scale gesture: Scaling, Scale factor: " + detector.getScaleFactor());
 		
 		scale = detector.getScaleFactor();
 		// scale the image according to the gesture
@@ -531,6 +538,32 @@ public class PinchableImageView extends ImageView implements
         	return true;
         }
     }
+
+	@Override
+	public void onImageManipulated() {
+		// Redraw!
+		this.invalidate();
+	}
+
+	@Override
+	public void onLoadingNewImage() {
+		// TODO Show a spinner during the loading time!
+		Log.d(TAG, "Loading a new image");		
+	}
+
+	@Override
+	public void onNewImageLoaded() {
+		Log.d(TAG, "New image is loaded completely");
+		
+		if(image.getScaledBitmap() != null) {
+			super.setImageBitmap(image.getScaledBitmap());
+			
+			// Recenter the image
+	        centerImageInView();
+		} else {
+			Log.w(TAG, "New Bitmap is NULL!!!");
+		}
+	}
 
 
 }

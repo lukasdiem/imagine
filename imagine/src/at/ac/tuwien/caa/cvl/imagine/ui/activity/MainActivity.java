@@ -27,23 +27,35 @@ import android.os.Bundle;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.View;
 import android.view.ViewTreeObserver;
+import android.view.View.OnTouchListener;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.widget.Toast;
 import at.ac.tuwien.caa.cvl.imagine.R;
 import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader;
+import at.ac.tuwien.caa.cvl.imagine.image.ImImage;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.HistogramView;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.PinchableImageView;
 import at.ac.tuwien.caa.cvl.imagine.utils.FileUtils;
 
-public class MainActivity extends ActionBarActivity  {
+public class MainActivity extends ActionBarActivity {
 	private static final String TAG = MainActivity.class.getSimpleName();
 	
 	private static final int INTENT_SELECT_IMAGE = 1;
 	
+	private ActionBar actionBar;
 	private PinchableImageView imageView;
+	private HistogramView histogramView;
+	
+	private GestureDetector gestureDetector;
+	
+	private ImImage image;
+	
 	private int imageViewWidth;
 	private int imageViewHeight;
 	
@@ -78,10 +90,29 @@ public class MainActivity extends ActionBarActivity  {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
         setContentView(R.layout.activity_main);
         
+        // Hide the Action bar
+        actionBar = getSupportActionBar();
+        actionBar.hide();
+        
+        // Add Gesture detector => SingleTap Detection
+        gestureDetector = new GestureDetector(this, new MainActivityGestureListener());
+        
+        // Initialize the image
+        image = new ImImage(this);
+                
         // Get the image view
         imageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
+        imageView.setImage(image);
+        
+        // Get the histogram view
+        histogramView = (HistogramView) findViewById(R.id.histView);
+        
+        if (histogramView != null) {
+        	histogramView.setImage(image);
+        }
     }
     
     @Override
@@ -123,8 +154,8 @@ public class MainActivity extends ActionBarActivity  {
     public void openImage() {
     	Log.d(TAG, "Open image");
     	    	
-    	imageViewWidth = (int)imageView.getViewBounds().width();
-    	imageViewHeight = (int)imageView.getViewBounds().height();
+    	//imageViewWidth = (int)imageView.getViewBounds().width();
+    	//imageViewHeight = (int)imageView.getViewBounds().height();
     	
     	//Log.d(TAG, "View size: " + imageViewWidth + ", " + imageViewHeight);
     	
@@ -151,14 +182,15 @@ public class MainActivity extends ActionBarActivity  {
     				// Sometimes the image view seems to be cleaned up during the user selects its image => reinitialize it!
 					// Get the image view
 				    final PinchableImageView finalImageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
-					final Context callerContext = this; 
+					//final Context callerContext = this; 
 				    
 				    ViewTreeObserver vto = finalImageView.getViewTreeObserver();
 				    vto.addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
 
 				        @Override
 				        public void onGlobalLayout() {
-				        	try {
+				        	image.loadImage(selectedImageUri);
+				        	/*try {
 					        	// NEVER try to access the imageview here => sometimes it is not loaded => nullpointer
 								Bitmap downsampledBitmap = BitmapLoader.decodeResizedBitmap(callerContext, 
 										selectedImageUri, finalImageView.getWidth(), finalImageView.getHeight());
@@ -186,7 +218,7 @@ public class MainActivity extends ActionBarActivity  {
 							} catch (IOException e) {
 								Log.e(TAG, "Could not read the exif information!");
 								e.printStackTrace();
-							} 
+							} */
 				        	
 				            ViewTreeObserver obs = finalImageView.getViewTreeObserver();
 				            // Remove the view tree observer such that is not called again
@@ -204,5 +236,39 @@ public class MainActivity extends ActionBarActivity  {
 	    		break;    		
     	}
     }
+    
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        super.dispatchTouchEvent(event);
+        
+        // Check if a single tap occures
+        return gestureDetector.onTouchEvent(event);
+    }
+    
+    /*----------------------------------------------------------------------
+	 * Private gesture listener class
+	 -----------------------------------------------------------------------*/	
+	class MainActivityGestureListener extends GestureDetector.SimpleOnGestureListener {
 
+		@Override
+		public boolean onSingleTapConfirmed(MotionEvent event) {
+			super.onSingleTapConfirmed(event);
+			
+			Log.d(TAG, "Single Tap event received");
+			
+			if (actionBar != null) {
+				if (actionBar.isShowing()) {
+					Log.d(TAG, "Trying to hide the actionBar");
+					actionBar.hide();
+				} else {
+					Log.d(TAG, "Trying to show the actionBar");
+					actionBar.show();
+				}
+			}
+			
+			
+			return super.onSingleTapConfirmed(event);
+		}
+		
+	}
 }

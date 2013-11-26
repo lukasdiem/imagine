@@ -3,47 +3,79 @@ package at.ac.tuwien.caa.cvl.imagine.image;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.opencv.core.Mat;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.util.Log;
+import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader.OnBitmapLoaded;
 import at.ac.tuwien.caa.cvl.imagine.utils.FileUtils;
 
 
-
-public class ImImage {
+public class ImImage implements OnBitmapLoaded {
 	//@SuppressWarnings("unused")
 	private static final String TAG = ImImage.class.getSimpleName();
 	private static final int UNKNOWN_SIZE = -1;
 	
-	protected Context context;
+	protected Context 	context;
+	
+	// The listeners
+	private List<OnImageChangedListener> onImageChangeListenerList;
 	
 	// Base path
-	protected String imagePath;
-	protected Uri imageUri;
-	protected String imageName;
+	protected String 	imagePath;
+	protected Uri		imageUri;
+	protected String	imageName;
+	
+	// The real images
+	protected Bitmap 	scaledBitmap;
+	protected Mat	 	imageMat;
 	
 	// Exif meta information
 	protected ExifInterface exifData;
-	protected String exifDate;
-	protected int exifOrientation;
-	protected float exifRotation;
-	
+	protected String 		exifDate;
+	protected int 			exifOrientation;
+	protected float 		exifRotation;
+	protected Matrix		exifRotationMatrix;
+
 	// Size vars
 	protected int width = UNKNOWN_SIZE;
 	protected int height = UNKNOWN_SIZE;
+	protected int scaledBitmapWidth = UNKNOWN_SIZE;
+	protected int scaledBitmapHeight = UNKNOWN_SIZE;
+	
+	// Bitmap loader
+	protected BitmapLoader bitmapLoader;
+	protected BitmapLoader.TaskParams bitmapLoaderParams;
+	
+	public ImImage(Context context) {
+		initialize(context);
+	}
 	
 	public ImImage(Context context, Uri uri) {
-		this.context = context;
+		initialize(context);
+		
+		// Initialize the file paths
 		this.imageUri = uri;
 		this.imagePath = FileUtils.getRealPathFromURI(context, uri);
 		this.imageName = uri.getLastPathSegment();
 		
-		loadExifInformation();
+		// Read in the image size
 		updateImageSize();
+	}
+	
+	private void initialize(Context context) {
+		this.context = context;
+		this.exifRotationMatrix = new Matrix();
+		
+		onImageChangeListenerList = new ArrayList<OnImageChangedListener>();
 	}
 	
 	private void updateImageSize() {
@@ -60,15 +92,18 @@ public class ImImage {
 			// Close the opened stream
 			imageStream.close();
 			
-			if (exifOrientation == ExifInterface.ORIENTATION_NORMAL || 
-					exifOrientation == ExifInterface.ORIENTATION_ROTATE_180) {
-				width = options.outWidth;
-				height = options.outHeight;
-			} else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90 || 
+			// Load the exif information to correctly flip the width and height
+			loadExifInformation();
+			
+			width = options.outWidth;
+			height = options.outHeight;
+			
+			// Change width and height if the orientation is 90 or 270			
+			if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90 || 
 					exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {
-				// Change width and height if the orientation is 90 or 270
-				width = options.outWidth;
-				height = options.outHeight;
+
+				width = options.outHeight;
+				height = options.outWidth;
 			}
 		} catch (FileNotFoundException eFnF) {
 			Log.e(TAG, "Could not read width and height from the file");
@@ -95,7 +130,7 @@ public class ImImage {
 		return exifData;
 	}
 	
-	private static float exifOrientationToRotation(int exifOrientation) {
+	private float exifOrientationToRotation(int exifOrientation) {
 		float rotation = 0;
 		
 		switch(exifOrientation) {
@@ -110,32 +145,131 @@ public class ImImage {
 			default: Log.d(TAG, "Do not knot the exif orientation flag: " + exifOrientation);
 		}
 		
+		// Set the rotation matrix accordingly
+		exifRotationMatrix.setRotate(rotation);
+		
 		return rotation;
 	}
 	
+	public void reset() {
+		this.width = UNKNOWN_SIZE;
+		this.height = UNKNOWN_SIZE;
+		this.exifOrientation = 0;
+		this.exifDate = "";
+		this.exifRotation = 0;
+		this.exifRotationMatrix.reset();
+	}
+	
+	/*-----------------------------------------------------------------------------
+	 * GETTER/SETTER
+	 *-----------------------------------------------------------------------------*/
+	public void loadImage(Uri uri) {
+		notifyOnLoadingNewImage();
+		
+		reset();
+		
+		// Initialize the file paths
+		this.imageUri = uri;
+		this.imagePath = FileUtils.getRealPathFromURI(context, uri);
+		this.imageName = uri.getLastPathSegment();
+		
+		// Read in the image size
+		updateImageSize();
+		
+		Log.d(TAG, "New image size: " + width + "x" + height);
+		
+		// TODO load bitmap/load Mat
+		if (scaledBitmapHeight == UNKNOWN_SIZE || scaledBitmapWidth == UNKNOWN_SIZE) {
+			bitmapLoaderParams = new BitmapLoader.TaskParams(context, uri, width, height);
+		} else {
+			bitmapLoaderParams = new BitmapLoader.TaskParams(context, uri, scaledBitmapWidth, scaledBitmapHeight);
+		}
+		
+		// execute the task
+		bitmapLoader = new BitmapLoader();
+		bitmapLoader.addOnBitmapLoadedListener(this);
+		// execute the loading task
+		bitmapLoader.execute(bitmapLoaderParams);
+	}
+	
+	
+	public int getScaledBitmapWidth() {
+		return scaledBitmapWidth;
+	}
+
+	public void setScaledBitmapWidth(int scaledBitmapWidth) {
+		this.scaledBitmapWidth = scaledBitmapWidth;
+	}
+
+	public int getScaledBitmapHeight() {
+		return scaledBitmapHeight;
+	}
+
+	public void setScaledBitmapHeight(int scaledBitmapHeight) {
+		this.scaledBitmapHeight = scaledBitmapHeight;
+	}
+	
 	public int getWidth() {
-		return 0;
+		return width;
 	}
 	
 	public int getHeight() {
-		return 0;
+		return height;
 	}
 	
 	public String getFullPath() {
-		return null;
+		return imagePath;
 	}
 	
-	public InputStream getFullSizeImageStream() {
-		return null;
+	public InputStream getFullSizeImageStream() throws FileNotFoundException {
+		return context.getContentResolver().openInputStream(imageUri);
 	}
 	
 	public Uri getFullSizeImageUri() {
-		return null;
+		return imageUri;
 	}
 	
-	public Bitmap getScaledBitmap(int targetWidth, int targetHeight) {
-		return null;
+	public Bitmap getScaledBitmap() {
+		return scaledBitmap;
+	}
+		
+	public Matrix getExifRotationMatrix() {
+		return exifRotationMatrix;
+	}
+
+	/*-----------------------------------------------------------------------------
+	 * Listeners
+	 *-----------------------------------------------------------------------------*/	
+	@Override
+	public void onBitmapLoaded(Bitmap bitmap) {
+		this.scaledBitmap = bitmap;
+		notifyOnNewImageLoaded();		
 	}
 	
+	/*-----------------------------------------------------------------------------
+	 * Listener interface implementation
+	 *-----------------------------------------------------------------------------*/
+	public void addOnImageChangedListener(OnImageChangedListener listener) {
+		onImageChangeListenerList.add(listener);
+	}
 	
+	private void notifyOnLoadingNewImage() {
+		Log.d(TAG, "Notifying " + onImageChangeListenerList.size() + " listernes: Loading image");		
+		for (OnImageChangedListener listener:onImageChangeListenerList) {
+			listener.onLoadingNewImage();
+		}
+	}
+	
+	private void notifyOnNewImageLoaded() {
+		Log.d(TAG, "Notifying " + onImageChangeListenerList.size() + " listernes: Image Loaded completly");
+		for (OnImageChangedListener listener:onImageChangeListenerList) {
+			listener.onNewImageLoaded();
+		}
+	}
+	
+	private void notifyOnImageManipulated() {
+		for (OnImageChangedListener listener:onImageChangeListenerList) {
+			listener.onImageManipulated();
+		}
+	}
 }
