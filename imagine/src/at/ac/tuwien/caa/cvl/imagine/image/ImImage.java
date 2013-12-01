@@ -6,7 +6,11 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.opencv.android.Utils;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.highgui.Highgui;
+import org.opencv.imgproc.Imgproc;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -151,6 +155,44 @@ public class ImImage implements OnBitmapLoaded {
 		return rotation;
 	}
 	
+	public void changeBrightnessContrast(float brightness, float contrast) {
+		byte buff[] = new byte[(int)imageMat.total() * imageMat.channels()];
+		
+		// Read the data
+		imageMat.get(0, 0, buff);
+		
+		float val;
+		for (int i=0; i < buff.length; i++) {
+			val = contrast * (float)buff[i] + brightness;
+			
+			if (val > 255)
+				buff[i] = (byte)255;
+			else if (val < 0)
+				buff[i] = 0;
+			else
+				buff[i] = (byte)Math.round(val);
+		}
+		
+		imageMat.put(0, 0, buff);
+		
+		Utils.matToBitmap(imageMat, scaledBitmap);
+		
+		this.notifyOnImageManipulated();
+	}
+	
+	public void convertToGrayscale() {
+    	Mat tmpMat = new Mat();
+		Utils.bitmapToMat(scaledBitmap, tmpMat);
+    	Imgproc.cvtColor(tmpMat, tmpMat, Imgproc.COLOR_BGR2GRAY);
+    	//Imgproc.GaussianBlur(imageMat, imageMat, new Size(3, 3), 0);
+    	//Imgproc.adaptiveThreshold(imageMat, imageMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY_INV, 5, 4);
+    	Utils.matToBitmap(tmpMat, scaledBitmap);
+    	// Cleanup
+    	imageMat.release();
+    	
+    	this.notifyOnImageManipulated();
+	}
+	
 	public void reset() {
 		this.width = UNKNOWN_SIZE;
 		this.height = UNKNOWN_SIZE;
@@ -188,8 +230,19 @@ public class ImImage implements OnBitmapLoaded {
 		// execute the task
 		bitmapLoader = new BitmapLoader();
 		bitmapLoader.addOnBitmapLoadedListener(this);
+		
 		// execute the loading task
 		bitmapLoader.execute(bitmapLoaderParams);
+		
+		// load the opencv mat
+		imageMat = Highgui.imread(imagePath);
+		
+		if (imageMat.empty()) {
+			Log.w(TAG, "Could not load the image to a OpenCV mat.");
+		} else {
+			Imgproc.cvtColor(imageMat, imageMat, Imgproc.COLOR_BGR2RGB);
+		}
+		
 	}
 	
 	

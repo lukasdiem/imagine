@@ -252,7 +252,10 @@ public class HistogramView extends SurfaceView implements SurfaceHolder.Callback
 	
 	@Override
 	public void onImageManipulated() {
-		this.updateHistogram();
+		cvImgMat = new Mat();
+		Utils.bitmapToMat(image.getScaledBitmap(), cvImgMat);
+    	
+    	this.setImageMat(cvImgMat);
 	}
 
 	@Override
@@ -262,11 +265,10 @@ public class HistogramView extends SurfaceView implements SurfaceHolder.Callback
 
 	@Override
 	public void onNewImageLoaded() {
-		Bitmap imageBitmap = image.getScaledBitmap();
-    	Mat imageMat = new Mat(imageBitmap.getWidth(), imageBitmap.getHeight(), CvType.CV_8UC3);
-    	Utils.bitmapToMat(imageBitmap, imageMat);
-
-    	this.setImageMat(imageMat);
+		cvImgMat = new Mat();
+		Utils.bitmapToMat(image.getScaledBitmap(), cvImgMat);
+    	
+    	this.setImageMat(cvImgMat);
 	}
 	
 	

@@ -523,7 +523,7 @@ public class PinchableImageView extends ImageView implements
      	public boolean onSingleTapConfirmed(MotionEvent e) {
         	Log.d(TAG, "single tap detected");
         	
-        	Mat imageMat = new Mat();
+        	/*Mat imageMat = new Mat();
         	Bitmap imageBitmap = ((BitmapDrawable)getDrawable()).getBitmap();
         	Utils.bitmapToMat(imageBitmap, imageMat);
         	Imgproc.cvtColor(imageMat, imageMat, Imgproc.COLOR_BGR2GRAY);
@@ -533,7 +533,10 @@ public class PinchableImageView extends ImageView implements
         	// Cleanup
         	imageMat.release();
         	// Invalidate the view => redraw!
-        	invalidate();
+        	invalidate();*/
+        	
+        	//image.changeBrightnessContrast(20, 2);
+        	image.convertToGrayscale();
         	
         	return true;
         }
