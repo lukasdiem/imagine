@@ -6,11 +6,19 @@
     android:background="#A0A0A0"
     android:baselineAligned="false" >
     
+    <!-- 
     <include
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="2"
         layout="@layout/fragment_image_view" />
+	-->
+    
+    <include
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="2"
+        layout="@layout/widget_opengl_image_view" />
 
     <LinearLayout 
 		android:layout_width="0dp"

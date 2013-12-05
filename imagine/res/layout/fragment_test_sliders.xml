@@ -5,16 +5,34 @@
     android:paddingBottom="10dp"
     android:orientation="vertical" >
 
-    <SeekBar
-        android:id="@+id/seekBar1"
-        android:layout_width="match_parent"
+    <TextView
+        android:id="@+id/textView1"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_weight="1" />
+        android:layout_weight="1"
+        android:text="@string/sliderBrightness" />
 
     <SeekBar
-        android:id="@+id/seekBar2"
+        android:id="@+id/sliderBrightness"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:max="511"
+        android:progress="256"
         android:layout_weight="1" />
+
+    <TextView
+        android:id="@+id/textView2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="@string/sliderContrast" />
+
+    <SeekBar
+        android:id="@+id/sliderContrast"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:max="200"
+        android:progress="100" />
 
 </LinearLayout>

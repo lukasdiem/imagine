@@ -19,6 +19,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.media.ExifInterface;
 import android.net.Uri;
@@ -35,15 +36,20 @@ import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.View.OnTouchListener;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.widget.SeekBar;
+import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.Toast;
 import at.ac.tuwien.caa.cvl.imagine.R;
 import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader;
 import at.ac.tuwien.caa.cvl.imagine.image.ImImage;
+import at.ac.tuwien.caa.cvl.imagine.image.ImJniImageProcessing;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.HistogramView;
+import at.ac.tuwien.caa.cvl.imagine.ui.view.OpenGlImageRenderer;
+import at.ac.tuwien.caa.cvl.imagine.ui.view.OpenGlImageView;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.PinchableImageView;
 import at.ac.tuwien.caa.cvl.imagine.utils.FileUtils;
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends ActionBarActivity implements OnSeekBarChangeListener {
 	private static final String TAG = MainActivity.class.getSimpleName();
 	
 	private static final int INTENT_SELECT_IMAGE = 1;
@@ -51,10 +57,15 @@ public class MainActivity extends ActionBarActivity {
 	private ActionBar actionBar;
 	private PinchableImageView imageView;
 	private HistogramView histogramView;
+	private OpenGlImageView openglImageView;
+	
+	private SeekBar sliderContrast;
+	private SeekBar sliderBrightness;
 	
 	private GestureDetector gestureDetector;
 	
 	private ImImage image;
+	private ImJniImageProcessing imageProcessing = new ImJniImageProcessing();
 	
 	private int imageViewWidth;
 	private int imageViewHeight;
@@ -67,8 +78,12 @@ public class MainActivity extends ActionBarActivity {
 	            {
 	                Log.i(TAG, "OpenCV loaded successfully");
 	                
+	                // Initialize the image with a default image
+	                initializeDefaultImage();
+	                
+	                
 	                // Get the histogram view
-	                HistogramView histView = (HistogramView) findViewById(R.id.histView);
+	                /*HistogramView histView = (HistogramView) findViewById(R.id.histView);
 	                
 	                if (histView != null) {
 	                	Bitmap imageBitmap = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
@@ -76,7 +91,7 @@ public class MainActivity extends ActionBarActivity {
 	                	Utils.bitmapToMat(imageBitmap, imageMat);
 		                		                
 		                histView.setImageMat(imageMat);
-	                }
+	                }*/
 	                
 	            } break;
 	            default:
@@ -102,10 +117,19 @@ public class MainActivity extends ActionBarActivity {
         
         // Initialize the image
         image = new ImImage(this);
-                
+        
         // Get the image view
         imageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
-        imageView.setImage(image);
+        if (imageView != null) {
+        	imageView.setImage(image);
+        }
+        
+        openglImageView = (OpenGlImageView) findViewById(R.id.openglImageView);
+        if (openglImageView != null) {
+        	openglImageView.setImage(image);
+        }
+        
+        // Get the opengl image view
         
         // Get the histogram view
         histogramView = (HistogramView) findViewById(R.id.histView);
@@ -113,6 +137,18 @@ public class MainActivity extends ActionBarActivity {
         if (histogramView != null) {
         	histogramView.setImage(image);
         }
+        
+        // Get the sliders
+        sliderBrightness = (SeekBar) findViewById(R.id.sliderBrightness);
+        sliderBrightness.setOnSeekBarChangeListener(this);
+        sliderContrast = (SeekBar) findViewById(R.id.sliderContrast);
+        sliderContrast.setOnSeekBarChangeListener(this);
+        
+    }
+    
+    private void initializeDefaultImage() {        
+    	Uri defaultImage = Uri.parse("android.resource://at.ac.tuwien.caa.cvl.imagine/" + R.raw.test);
+    	image.loadImage(defaultImage);
     }
     
     @Override
@@ -181,7 +217,8 @@ public class MainActivity extends ActionBarActivity {
     				    				
     				// Sometimes the image view seems to be cleaned up during the user selects its image => reinitialize it!
 					// Get the image view
-				    final PinchableImageView finalImageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
+				    //final PinchableImageView finalImageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
+	    			final OpenGlImageView finalImageView = (OpenGlImageView) findViewById(R.id.openglImageView);
 					//final Context callerContext = this; 
 				    
 				    ViewTreeObserver vto = finalImageView.getViewTreeObserver();
@@ -269,6 +306,37 @@ public class MainActivity extends ActionBarActivity {
 			
 			return super.onSingleTapConfirmed(event);
 		}
+		
+	}
+
+	
+	@Override
+	public void onProgressChanged(SeekBar seekBar, int progress,
+			boolean fromUser) {
+		
+		if (seekBar == sliderBrightness || seekBar == sliderContrast) {
+			setBrightnessContrast();
+		}		
+	}
+	
+	private void setBrightnessContrast() {
+		float brightness = sliderBrightness.getProgress() - 256;
+		float contrast = (float)sliderContrast.getProgress() / (float)sliderContrast.getMax() + 0.5f;
+		
+		Log.d(TAG, "Brighntess: " + brightness + ", contrast: " + contrast);
+		
+		image.changeBrightnessContrast(brightness, contrast);
+	}
+
+	@Override
+	public void onStartTrackingTouch(SeekBar seekBar) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onStopTrackingTouch(SeekBar seekBar) {
+		// TODO Auto-generated method stub
 		
 	}
 }

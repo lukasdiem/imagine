@@ -6,5 +6,7 @@
     <string name="hello_world">Hello world!</string>
     <string name="action_open_image">Open Image</string>
     <string name="title_activity_image_slider">ImageSliderActivity</string>
+    <string name="sliderBrightness">Brightness:</string>
+    <string name="sliderContrast">Contrast:</string>
 
 </resources>

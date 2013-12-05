@@ -536,7 +536,8 @@ public class PinchableImageView extends ImageView implements
         	invalidate();*/
         	
         	//image.changeBrightnessContrast(20, 2);
-        	image.convertToGrayscale();
+        	//image.convertToGrayscale();
+        	image.changeBrightnessContrast(10, 1);
         	
         	return true;
         }

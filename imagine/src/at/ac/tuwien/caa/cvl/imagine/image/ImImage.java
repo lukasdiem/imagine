@@ -12,6 +12,7 @@ import org.opencv.core.Mat;
 import org.opencv.highgui.Highgui;
 import org.opencv.imgproc.Imgproc;
 
+import test.JniTest;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -21,7 +22,6 @@ import android.net.Uri;
 import android.util.Log;
 import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader.OnBitmapLoaded;
 import at.ac.tuwien.caa.cvl.imagine.utils.FileUtils;
-
 
 public class ImImage implements OnBitmapLoaded {
 	//@SuppressWarnings("unused")
@@ -155,8 +155,16 @@ public class ImImage implements OnBitmapLoaded {
 		return rotation;
 	}
 	
+	ImJniImageProcessing test = new ImJniImageProcessing();
 	public void changeBrightnessContrast(float brightness, float contrast) {
-		byte buff[] = new byte[(int)imageMat.total() * imageMat.channels()];
+		long startTime = System.currentTimeMillis();
+		
+		
+		//test.brightnessContrastNative((int)brightness, (int)contrast);
+		//ImJniImageProcessing.brightnessContrast(imageMat.nativeObj, imageMat.nativeObj, contrast, brightness);
+		imageMat.convertTo(imageMat, -1, contrast, brightness);
+		
+		/*byte buff[] = new byte[(int)imageMat.total() * imageMat.channels()];
 		
 		// Read the data
 		imageMat.get(0, 0, buff);
@@ -173,9 +181,13 @@ public class ImImage implements OnBitmapLoaded {
 				buff[i] = (byte)Math.round(val);
 		}
 		
-		imageMat.put(0, 0, buff);
-		
+		imageMat.put(0, 0, buff);*/
+		long startMatBit = System.currentTimeMillis();
 		Utils.matToBitmap(imageMat, scaledBitmap);
+		long endTime = System.currentTimeMillis();
+		
+		Log.d(TAG, "Mat2Bitmap took: " + (endTime-startMatBit) + " ms");
+		Log.d(TAG, "Changing Brightness/Contrast took: " + (endTime - startTime) + " ms");
 		
 		this.notifyOnImageManipulated();
 	}
@@ -243,6 +255,10 @@ public class ImImage implements OnBitmapLoaded {
 			Imgproc.cvtColor(imageMat, imageMat, Imgproc.COLOR_BGR2RGB);
 		}
 		
+	}
+	
+	public Mat getImageMat() {
+		return imageMat;
 	}
 	
 	
