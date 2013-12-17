@@ -21,6 +21,8 @@ public class OpenGlImageRenderer implements GLSurfaceView.Renderer {
 	
 	@Override
 	public void onDrawFrame(GL10 unused) {
+		Log.d(TAG, "Trying to load render!");
+		
 		if (image.getImageMat() != null) {
 			OpenGlImageRenderer.renderOpenGl(image.getImageMat().nativeObj);
 		} else {
@@ -31,11 +33,12 @@ public class OpenGlImageRenderer implements GLSurfaceView.Renderer {
 
 	@Override
 	public void onSurfaceChanged(GL10 unused, int width, int height) {
-		float ratio = (float) width / height;
+		Log.d(TAG, "View changed...");
+		//float ratio = (float) width / height;
 
 	    // this projection matrix is applied to object coordinates
 	    // in the onDrawFrame() method
-	    Matrix.frustumM(projMatrix, 0, -ratio, ratio, -1, 1, 3, 7);
+	    //Matrix.frustumM(projMatrix, 0, -ratio, ratio, -1, 1, 3, 7);
 
 		
 		OpenGlImageRenderer.resizeOpenGlViewport(width, height);
@@ -43,6 +46,7 @@ public class OpenGlImageRenderer implements GLSurfaceView.Renderer {
 
 	@Override
 	public void onSurfaceCreated(GL10 unused, EGLConfig config) {
+		Log.d(TAG, "Init opengl rendering");
 		OpenGlImageRenderer.initOpenGl();		
 	}
 

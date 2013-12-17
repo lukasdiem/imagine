@@ -140,13 +140,20 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
         
         // Get the sliders
         sliderBrightness = (SeekBar) findViewById(R.id.sliderBrightness);
-        sliderBrightness.setOnSeekBarChangeListener(this);
+        if (sliderBrightness != null) {
+        	sliderBrightness.setOnSeekBarChangeListener(this);
+        }
+        
         sliderContrast = (SeekBar) findViewById(R.id.sliderContrast);
-        sliderContrast.setOnSeekBarChangeListener(this);
+        if (sliderContrast != null) {
+        	sliderContrast.setOnSeekBarChangeListener(this);
+        }
         
     }
     
     private void initializeDefaultImage() {        
+    	Log.d(TAG, "Trying to load the default image!");
+    	
     	Uri defaultImage = Uri.parse("android.resource://at.ac.tuwien.caa.cvl.imagine/" + R.raw.test);
     	image.loadImage(defaultImage);
     }

@@ -27,7 +27,8 @@ include C:\MyPrograms\Programmieren\OpenCV-2.4.6-android-sdk\sdk\native\jni\Open
 
 LOCAL_MODULE    := openglrenderer
 LOCAL_CFLAGS    := -Werror
-LOCAL_SRC_FILES := JniOpenGlImageRenderer.cpp
+LOCAL_SRC_FILES := Utils.cpp \
+				   JniOpenGlImageRenderer.cpp
 LOCAL_LDLIBS    += -llog -lGLESv2
 
 include $(BUILD_SHARED_LIBRARY)

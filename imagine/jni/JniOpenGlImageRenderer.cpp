@@ -1,26 +1,35 @@
 #include <jni.h>
-#include <android/log.h>
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
+#include "Utils.h"
 
 #define LOG_TAG "Imagine/NativeOpenGlRendering"
-#define  LOGD(...)  ((void)__android_log_print(ANDROID_LOG_DEBUG,LOG_TAG,__VA_ARGS__))
+
+#define BUFFER_OFFSET(i) ((void*)(i))
 
 int frameWidth;
 int frameHeight;
 
 GLuint texture;
-GLfloat textureCoord;
+GLuint buffer;
+GLuint program;
 
-// Initialize the Screen filling quad to reder on
-GLfloat vertices[] = {
-	-1.0f, -1.0f, 0.0f, // V1 - bottom left
-	-1.0f,  1.0f, 0.0f, // V2 - top left
-	 1.0f, -1.0f, 0.0f, // V3 - bottom right
-	 1.0f,  1.0f, 0.0f  // V4 - top right
+GLint a_position_location;
+GLint a_texture_coordinates_location;
+GLint u_texture_unit_location;
+
+
+// position X, Y, texture S, T
+static const float rect[] = {
+		-1.0f, -1.0f, 0.0f, 0.0f,
+		-1.0f,  1.0f, 0.0f, 1.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f,
+		 1.0f,  1.0f, 1.0f, 1.0f
 };
 
 cv::Mat renderMat;
@@ -30,9 +39,25 @@ void initOpenGl() {
 	//glShadeModel(GL_SMOOTH);
 	glClearDepthf(1.0f);
 	//glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+
+	//LOGD("Loading image!");
+	//imageMat = cv::imread("mnt/sdcard0/test/test.jpg");
 }
 
-void createTexture() {
+/*GLuint create_vbo(const GLsizeiptr size, const GLvoid* data, const GLenum usage) {
+    assert(data != NULL);
+	GLuint vbo_object;
+	glGenBuffers(1, &vbo_object);
+	assert(vbo_object != 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_object);
+	glBufferData(GL_ARRAY_BUFFER, size, data, usage);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	return vbo_object;
+}*/
+
+void createTexture(const cv::Mat& image) {
 	/*textureCoord[0] = ((1024.0f-frameWidth*1.0f)/2.0f)/1024.0f;
 	textureCoord[1] = ((1024.0f-frameHeight*1.0f)/2.0f)/1024.0f + (frameHeight*1.0f/1024.0f);
 	textureCoord[2] = ((1024.0f-frameWidth*1.0f)/2.0f)/1024.0f + (frameWidth*1.0f/1024.0f);
@@ -48,14 +73,14 @@ void createTexture() {
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	// Set texture clamping method
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	LOGD("Texture created!");
@@ -82,7 +107,7 @@ void resizeViewport(int newWidth, int newHeight)
 	glClearDepthf(1.0f);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);*/
-	createTexture();
+	//createTexture(imageMat);
 }
 
 
@@ -93,24 +118,26 @@ void destroyTexture() {
 
 void renderFrame(cv::Mat imageMat)
 {
-	// Clear the screen
-	glClear(GL_COLOR_BUFFER_BIT);
+	/*createTexture(imageMat);
 
-	// Bind our created texture
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glUseProgram(program);
+
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture);
+	glUniform1i(u_texture_unit_location, 0);
 
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	//glVertexAttribPointer(a_position_location, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GL_FLOAT), BUFFER_OFFSET(0));
+	//glVertexAttribPointer(a_texture_coordinates_location, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GL_FLOAT), BUFFER_OFFSET(2 * sizeof(GL_FLOAT)));
+	glEnableVertexAttribArray(a_position_location);
+	glEnableVertexAttribArray(a_texture_coordinates_location);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-	/*if(imageMat.empty()){
-	      LOGD("Image is empty!");
-	} else {*/
-		cv::flip(imageMat, imageMat, 0);
-
-		glTexSubImage2D(GL_TEXTURE_2D, 0, (1024-frameWidth)/2, (1024-frameHeight)/2, frameWidth, frameHeight,
-		   GL_RGB, GL_UNSIGNED_BYTE, imageMat.ptr());
-
-		//glGenerateMipmap(GL_TEXTURE_2D);
-	//}
+	glBindBuffer(GL_ARRAY_BUFFER, 0);*/
 }
+
 
 /********************************************
  * JNI Part!
