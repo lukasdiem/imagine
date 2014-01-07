@@ -36,6 +36,7 @@ import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.View.OnTouchListener;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.Toast;
@@ -44,8 +45,6 @@ import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader;
 import at.ac.tuwien.caa.cvl.imagine.image.ImImage;
 import at.ac.tuwien.caa.cvl.imagine.image.ImJniImageProcessing;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.HistogramView;
-import at.ac.tuwien.caa.cvl.imagine.ui.view.OpenGlImageRenderer;
-import at.ac.tuwien.caa.cvl.imagine.ui.view.OpenGlImageView;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.PinchableImageView;
 import at.ac.tuwien.caa.cvl.imagine.utils.FileUtils;
 
@@ -57,7 +56,8 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
 	private ActionBar actionBar;
 	private PinchableImageView imageView;
 	private HistogramView histogramView;
-	private OpenGlImageView openglImageView;
+	
+	private ProgressBar progressOpenCv;
 	
 	private SeekBar sliderContrast;
 	private SeekBar sliderBrightness;
@@ -73,6 +73,8 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
 	private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
 	    @Override
 	    public void onManagerConnected(int status) {
+	    	finishOpenCvLoadingState();
+	    	
 	        switch (status) {
 	            case LoaderCallbackInterface.SUCCESS:
 	            {
@@ -112,6 +114,9 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
         actionBar = getSupportActionBar();
         actionBar.hide();
         
+        // Get the progress bar
+        progressOpenCv = (ProgressBar) findViewById(R.id.pbImageView);
+        
         // Add Gesture detector => SingleTap Detection
         gestureDetector = new GestureDetector(this, new MainActivityGestureListener());
         
@@ -123,12 +128,7 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
         if (imageView != null) {
         	imageView.setImage(image);
         }
-        
-        openglImageView = (OpenGlImageView) findViewById(R.id.openglImageView);
-        if (openglImageView != null) {
-        	openglImageView.setImage(image);
-        }
-        
+                
         // Get the opengl image view
         
         // Get the histogram view
@@ -140,13 +140,20 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
         
         // Get the sliders
         sliderBrightness = (SeekBar) findViewById(R.id.sliderBrightness);
-        sliderBrightness.setOnSeekBarChangeListener(this);
+        if (sliderBrightness != null) {
+        	sliderBrightness.setOnSeekBarChangeListener(this);
+        }
+        
         sliderContrast = (SeekBar) findViewById(R.id.sliderContrast);
-        sliderContrast.setOnSeekBarChangeListener(this);
+        if (sliderContrast != null) {
+        	sliderContrast.setOnSeekBarChangeListener(this);
+        }
         
     }
     
     private void initializeDefaultImage() {        
+    	Log.d(TAG, "Trying to load the default image!");
+    	
     	Uri defaultImage = Uri.parse("android.resource://at.ac.tuwien.caa.cvl.imagine/" + R.raw.test);
     	image.loadImage(defaultImage);
     }
@@ -154,13 +161,28 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
     @Override
     public void onResume() {
     	super.onResume();
+
+    	showOpenCvLoadingState();
     	
     	if (!OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_6, this, mLoaderCallback)) {
-    	    Log.e(TAG, "Cannot connect to OpenCV Manager");
+    	    Log.e(TAG, "Cannot connect to the OpenCV Manager");
+    	    
+    	    finishOpenCvLoadingState();
     	}
     	/*if (!OpenCVLoader.initDebug()) {
     	    Log.e("TEST", "Cannot connect to OpenCV Manager");
     	}*/
+    }
+    
+    private void showOpenCvLoadingState() {
+    	progressOpenCv.setVisibility(View.VISIBLE);
+    	
+    	Log.d(TAG, "Showing OpenCV loading spinner...");
+    	// TODO: Disable the whole user interface
+    }
+    
+    private void finishOpenCvLoadingState() {
+    	progressOpenCv.setVisibility(View.GONE);
     }
     
     @Override
@@ -217,9 +239,8 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
     				    				
     				// Sometimes the image view seems to be cleaned up during the user selects its image => reinitialize it!
 					// Get the image view
-				    //final PinchableImageView finalImageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
-	    			final OpenGlImageView finalImageView = (OpenGlImageView) findViewById(R.id.openglImageView);
-					//final Context callerContext = this; 
+				    final PinchableImageView finalImageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
+	    			//final Context callerContext = this; 
 				    
 				    ViewTreeObserver vto = finalImageView.getViewTreeObserver();
 				    vto.addOnGlobalLayoutListener(new OnGlobalLayoutListener() {

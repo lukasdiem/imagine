@@ -8,4 +8,12 @@
         android:layout_height="fill_parent"
         layout="@layout/fragment_image_view" />
 
+    <ProgressBar
+        android:id="@+id/pbImageView"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:visibility="gone" />
 </RelativeLayout>
