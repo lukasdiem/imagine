@@ -25,6 +25,7 @@ import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
@@ -33,9 +34,11 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewTreeObserver;
 import android.view.View.OnTouchListener;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
@@ -44,11 +47,12 @@ import at.ac.tuwien.caa.cvl.imagine.R;
 import at.ac.tuwien.caa.cvl.imagine.image.BitmapLoader;
 import at.ac.tuwien.caa.cvl.imagine.image.ImImage;
 import at.ac.tuwien.caa.cvl.imagine.image.ImJniImageProcessing;
+import at.ac.tuwien.caa.cvl.imagine.image.OnImageChangedListener;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.HistogramView;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.PinchableImageView;
 import at.ac.tuwien.caa.cvl.imagine.utils.FileUtils;
 
-public class MainActivity extends ActionBarActivity implements OnSeekBarChangeListener {
+public class MainActivity extends ActionBarActivity implements OnSeekBarChangeListener, OnClickListener, OnImageChangedListener {
 	private static final String TAG = MainActivity.class.getSimpleName();
 	
 	private static final int INTENT_SELECT_IMAGE = 1;
@@ -57,7 +61,7 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
 	private PinchableImageView imageView;
 	private HistogramView histogramView;
 	
-	private ProgressBar progressOpenCv;
+	private ProgressBar imageViewLoading;
 	
 	private SeekBar sliderContrast;
 	private SeekBar sliderBrightness;
@@ -65,39 +69,21 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
 	private GestureDetector gestureDetector;
 	
 	private ImImage image;
-	private ImJniImageProcessing imageProcessing = new ImJniImageProcessing();
-	
-	private int imageViewWidth;
-	private int imageViewHeight;
+
+	private ImageButton btnOpenImage;
 	
 	private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
 	    @Override
 	    public void onManagerConnected(int status) {
-	    	finishOpenCvLoadingState();
+	    	removeLoadingState();
 	    	
 	        switch (status) {
-	            case LoaderCallbackInterface.SUCCESS:
-	            {
+	            case LoaderCallbackInterface.SUCCESS: {
 	                Log.i(TAG, "OpenCV loaded successfully");
-	                
-	                // Initialize the image with a default image
-	                initializeDefaultImage();
-	                
-	                
-	                // Get the histogram view
-	                /*HistogramView histView = (HistogramView) findViewById(R.id.histView);
-	                
-	                if (histView != null) {
-	                	Bitmap imageBitmap = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
-	                	Mat imageMat = new Mat(imageBitmap.getWidth(), imageBitmap.getHeight(), CvType.CV_8UC3);
-	                	Utils.bitmapToMat(imageBitmap, imageMat);
-		                		                
-		                histView.setImageMat(imageMat);
-	                }*/
-	                
+	                // Set the correct state!
+	                image.setOpenCvLoaded(true);
 	            } break;
-	            default:
-	            {
+	            default: {
 	                super.onManagerConnected(status);
 	            } break;
 	        }
@@ -115,21 +101,26 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
         actionBar.hide();
         
         // Get the progress bar
-        progressOpenCv = (ProgressBar) findViewById(R.id.pbImageView);
+        imageViewLoading = (ProgressBar) findViewById(R.id.pbImageView);
         
         // Add Gesture detector => SingleTap Detection
         gestureDetector = new GestureDetector(this, new MainActivityGestureListener());
         
         // Initialize the image
         image = new ImImage(this);
+        image.setOnImageChangedListener(this);
         
         // Get the image view
         imageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
         if (imageView != null) {
         	imageView.setImage(image);
         }
-                
-        // Get the opengl image view
+        
+        // Get the open image button
+        btnOpenImage = (ImageButton) findViewById(R.id.btnOpenImage);
+        if (btnOpenImage != null) {
+        	btnOpenImage.setOnClickListener(this);
+        }
         
         // Get the histogram view
         histogramView = (HistogramView) findViewById(R.id.histView);
@@ -151,38 +142,40 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
         
     }
     
-    private void initializeDefaultImage() {        
-    	Log.d(TAG, "Trying to load the default image!");
-    	
-    	Uri defaultImage = Uri.parse("android.resource://at.ac.tuwien.caa.cvl.imagine/" + R.raw.test);
-    	image.loadImage(defaultImage);
-    }
-    
     @Override
     public void onResume() {
     	super.onResume();
 
-    	showOpenCvLoadingState();
+    	showLoadingState();
+    	
+    	image.setOpenCvLoaded(false);
     	
     	if (!OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_6, this, mLoaderCallback)) {
     	    Log.e(TAG, "Cannot connect to the OpenCV Manager");
     	    
-    	    finishOpenCvLoadingState();
+    	    removeLoadingState();
     	}
     	/*if (!OpenCVLoader.initDebug()) {
     	    Log.e("TEST", "Cannot connect to OpenCV Manager");
     	}*/
     }
     
-    private void showOpenCvLoadingState() {
-    	progressOpenCv.setVisibility(View.VISIBLE);
+    private void showLoadingState() {
+    	imageViewLoading.setVisibility(View.VISIBLE);
+    	btnOpenImage.setVisibility(View.GONE);
     	
-    	Log.d(TAG, "Showing OpenCV loading spinner...");
+    	Log.d(TAG, "Showing loading spinner...");
     	// TODO: Disable the whole user interface
     }
     
-    private void finishOpenCvLoadingState() {
-    	progressOpenCv.setVisibility(View.GONE);
+    private void removeLoadingState() {
+    	imageViewLoading.setVisibility(View.GONE);
+    	
+    	if (image.isImageLoaded()) {
+    		btnOpenImage.setVisibility(View.GONE);
+    	} else {
+    		btnOpenImage.setVisibility(View.VISIBLE);
+    	}
     }
     
     @Override
@@ -201,13 +194,42 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int itemId = item.getItemId();
-		if (itemId == R.id.action_open_image) {
-			openImage();
-			return true;
-		} else {
-			return super.onOptionsItemSelected(item);
-		}
+		
+        switch (itemId) {
+        case R.id.action_open_image: openImage();
+        	break;
+        case R.id.action_save_image: saveImage();
+        	break;
+        default:
+        	return super.onOptionsItemSelected(item);
+        }
+        
+        return true;
     }
+    
+	@Override
+	public void onClick(View v) {
+		if (v.getId() == R.id.btnOpenImage) {
+			openImage();
+		}
+	}
+	
+	public void saveImage() {
+		if (!image.isImageLoaded()) {
+			Log.w(TAG, "Can not save an image if nothing is loaded.");
+			return;
+		}
+		
+		Log.d(TAG, "Saving the image: " + image.getFullPath());
+		
+		// Load the directory
+		File path = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES) + "/Imagine/");
+		// Create the directory tree if not already done
+		path.mkdirs();
+		
+		// Save the image
+		image.saveImage(path.getAbsolutePath());
+	}
     
     public void openImage() {
     	Log.d(TAG, "Open image");
@@ -236,7 +258,9 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
 	    			final Uri selectedImageUri = data.getData();
 	    			Log.d(TAG, "Image uri: " + selectedImageUri.toString());
 	    			
-    				    				
+	    			image.loadImage(selectedImageUri);
+	    			
+	    			/*    				    				
     				// Sometimes the image view seems to be cleaned up during the user selects its image => reinitialize it!
 					// Get the image view
 				    final PinchableImageView finalImageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
@@ -276,7 +300,7 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
 							} catch (IOException e) {
 								Log.e(TAG, "Could not read the exif information!");
 								e.printStackTrace();
-							} */
+							} 
 				        	
 				            ViewTreeObserver obs = finalImageView.getViewTreeObserver();
 				            // Remove the view tree observer such that is not called again
@@ -287,6 +311,7 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
 				            }
 				        }
 				    });
+				    */
 	    		} else if (resultCode == RESULT_CANCELED) {
 	    			// Inform the user that he cancelled the image selection
 	    			Toast.makeText(this, "Image selection cancelled.", Toast.LENGTH_SHORT).show();
@@ -350,14 +375,27 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
 	}
 
 	@Override
+	public void onLoadingNewImage() {
+		showLoadingState();
+	}
+
+	@Override
+	public void onNewImageLoaded() {
+		removeLoadingState();
+	}
+
+	@Override
+	public void onImageManipulated() {
+		// Not needed by now
+	}
+
+	@Override
 	public void onStartTrackingTouch(SeekBar seekBar) {
-		// TODO Auto-generated method stub
-		
+		// Not needed by now
 	}
 
 	@Override
 	public void onStopTrackingTouch(SeekBar seekBar) {
-		// TODO Auto-generated method stub
-		
+		// Not needed by now
 	}
 }

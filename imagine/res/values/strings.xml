@@ -8,5 +8,7 @@
     <string name="title_activity_image_slider">ImageSliderActivity</string>
     <string name="sliderBrightness">Brightness:</string>
     <string name="sliderContrast">Contrast:</string>
+    <string name="btnOpenImageDesc">Open Image</string>
+    <string name="action_save_image">Save</string>
 
 </resources>

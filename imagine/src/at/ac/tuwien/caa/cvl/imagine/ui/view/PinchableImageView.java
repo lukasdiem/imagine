@@ -120,7 +120,7 @@ public class PinchableImageView extends ImageView implements
 		this.image = image;
 		
 		// Set myself to listen to events of this image class!
-		image.addOnImageChangedListener(this);
+		image.setOnImageChangedListener(this);
 	}
 	
 	@Override
@@ -211,71 +211,77 @@ public class PinchableImageView extends ImageView implements
 
 	@Override
 	public boolean onTouch(View v, MotionEvent event) {
-		// Let the gesture detectors inspect all events.
-	    mScaleDetector.onTouchEvent(event);
-	    gestureDetector.onTouchEvent(event);
-	    
-	    boolean needsInvalidate = false;
-		
-	    if (this.getScaleType() != ImageView.ScaleType.MATRIX) {
-	    	this.setScaleType(ImageView.ScaleType.MATRIX);
-	    }
-	    		
-	    final int action = MotionEventCompat.getActionMasked(event); 
-	    switch (action) { 
-		    case MotionEvent.ACTION_DOWN: { // One finger is on the screen
-		        if (event.getPointerCount() == 1) {
-		        	lastGesture = EnumGesture.DRAG;
-		        	lastFingerPos.set(event.getX(), event.getY());
-		        }
-		        
-		        break;
+		// Only except events if an image is available
+		if (image.isImageLoaded()) {
+			// Let the gesture detectors inspect all events.
+		    mScaleDetector.onTouchEvent(event);
+		    gestureDetector.onTouchEvent(event);
+		    
+		    boolean needsInvalidate = false;
+			
+		    if (this.getScaleType() != ImageView.ScaleType.MATRIX) {
+		    	this.setScaleType(ImageView.ScaleType.MATRIX);
 		    }
-		    		            
-		    case MotionEvent.ACTION_MOVE: { // The user is dragging
-		        if (event.getPointerCount() == 1 && lastGesture == EnumGesture.DRAG) {		        	
-		        	needsInvalidate = translateImage(event.getX() - lastFingerPos.x, event.getY() - lastFingerPos.y);
-		        	
-		        	// Remember this pos
-		        	lastFingerPos.set(event.getX(), event.getY());
-		        	
-		        	Log.d(TAG, "Moving image, x: " + (event.getX() - lastFingerPos.x));
-		        }
-		    	
-		        break;
+		    		
+		    final int action = MotionEventCompat.getActionMasked(event); 
+		    switch (action) { 
+			    case MotionEvent.ACTION_DOWN: { // One finger is on the screen
+			        if (event.getPointerCount() == 1) {
+			        	lastGesture = EnumGesture.DRAG;
+			        	lastFingerPos.set(event.getX(), event.getY());
+			        }
+			        
+			        break;
+			    }
+			    		            
+			    case MotionEvent.ACTION_MOVE: { // The user is dragging
+			        if (event.getPointerCount() == 1 && lastGesture == EnumGesture.DRAG) {		        	
+			        	needsInvalidate = translateImage(event.getX() - lastFingerPos.x, event.getY() - lastFingerPos.y);
+			        	
+			        	// Remember this pos
+			        	lastFingerPos.set(event.getX(), event.getY());
+			        	
+			        	Log.d(TAG, "Moving image, x: " + (event.getX() - lastFingerPos.x));
+			        }
+			    	
+			        break;
+			    }
+			    
+			    case MotionEvent.ACTION_UP | MotionEvent.ACTION_CANCEL: {
+			    	if (event.getPointerCount() == 0) {
+			    		// Reset the gestures
+			    		lastGesture = EnumGesture.NONE;
+			    	}
+			    		
+		    		if (!mEdgeEffectTop.onRelease()) {
+		    			needsInvalidate = true;
+		    		}
+		    		
+		    		if (!mEdgeEffectBottom.onRelease()) {
+		    			needsInvalidate = true;
+		    		}
+		    		
+		    		if (!mEdgeEffectLeft.onRelease()) {
+		    			needsInvalidate = true;
+		    		}
+		    		
+		    		if (!mEdgeEffectRight.onRelease()) {
+		    			needsInvalidate = true;
+		    		}
+			    	
+			    }
 		    }
 		    
-		    case MotionEvent.ACTION_UP | MotionEvent.ACTION_CANCEL: {
-		    	if (event.getPointerCount() == 0) {
-		    		// Reset the gestures
-		    		lastGesture = EnumGesture.NONE;
-		    	}
-		    		
-	    		if (!mEdgeEffectTop.onRelease()) {
-	    			needsInvalidate = true;
-	    		}
-	    		
-	    		if (!mEdgeEffectBottom.onRelease()) {
-	    			needsInvalidate = true;
-	    		}
-	    		
-	    		if (!mEdgeEffectLeft.onRelease()) {
-	    			needsInvalidate = true;
-	    		}
-	    		
-	    		if (!mEdgeEffectRight.onRelease()) {
-	    			needsInvalidate = true;
-	    		}
-		    	
+		    // Check if we have to invalidate this view
+		    if (needsInvalidate) {
+		    	this.invalidate();
 		    }
-	    }
-	    
-	    // Check if we have to invalidate this view
-	    if (needsInvalidate) {
-	    	this.invalidate();
-	    }
-	    
-		return true;
+		    
+			return true;
+		} else {
+			return false;
+		}
+		
 	}
 	
 	private boolean translateImage(float deltaX, float deltaY) {
@@ -522,24 +528,8 @@ public class PinchableImageView extends ImageView implements
         @Override
      	public boolean onSingleTapConfirmed(MotionEvent e) {
         	Log.d(TAG, "single tap detected");
-        	
-        	/*Mat imageMat = new Mat();
-        	Bitmap imageBitmap = ((BitmapDrawable)getDrawable()).getBitmap();
-        	Utils.bitmapToMat(imageBitmap, imageMat);
-        	Imgproc.cvtColor(imageMat, imageMat, Imgproc.COLOR_BGR2GRAY);
-        	//Imgproc.GaussianBlur(imageMat, imageMat, new Size(3, 3), 0);
-        	//Imgproc.adaptiveThreshold(imageMat, imageMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY_INV, 5, 4);
-        	Utils.matToBitmap(imageMat, imageBitmap);
-        	// Cleanup
-        	imageMat.release();
-        	// Invalidate the view => redraw!
-        	invalidate();*/
-        	
-        	//image.changeBrightnessContrast(20, 2);
-        	//image.convertToGrayscale();
-        	image.changeBrightnessContrast(10, 1);
-        	
-        	return true;
+        	        	
+        	return false;
         }
     }
 

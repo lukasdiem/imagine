@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -32,14 +33,20 @@ public class ImImage implements OnBitmapLoaded {
 	// The listeners
 	private List<OnImageChangedListener> onImageChangeListenerList;
 	
+	protected boolean	openCvLoaded = false;
+	protected boolean	pendingImageToLoad = false;
+	protected boolean	imageLoaded = false;
+	
 	// Base path
 	protected String 	imagePath;
 	protected Uri		imageUri;
 	protected String	imageName;
+	protected String	imageFileExt;
 	
 	// The real images
 	protected Bitmap 	scaledBitmap;
-	protected Mat	 	imageMat;
+	protected Mat	 	origImageMat;
+	protected Mat		procImageMat;
 	
 	// Exif meta information
 	protected ExifInterface exifData;
@@ -154,35 +161,13 @@ public class ImImage implements OnBitmapLoaded {
 		return rotation;
 	}
 	
-	ImJniImageProcessing test = new ImJniImageProcessing();
 	public void changeBrightnessContrast(float brightness, float contrast) {
 		long startTime = System.currentTimeMillis();
-		
-		
-		//test.brightnessContrastNative((int)brightness, (int)contrast);
-		//ImJniImageProcessing.brightnessContrast(imageMat.nativeObj, imageMat.nativeObj, contrast, brightness);
-		imageMat.convertTo(imageMat, -1, contrast, brightness);
-		
-		/*byte buff[] = new byte[(int)imageMat.total() * imageMat.channels()];
-		
-		// Read the data
-		imageMat.get(0, 0, buff);
-		
-		float val;
-		for (int i=0; i < buff.length; i++) {
-			val = contrast * (float)buff[i] + brightness;
 			
-			if (val > 255)
-				buff[i] = (byte)255;
-			else if (val < 0)
-				buff[i] = 0;
-			else
-				buff[i] = (byte)Math.round(val);
-		}
+		origImageMat.convertTo(procImageMat, -1, contrast, brightness);
 		
-		imageMat.put(0, 0, buff);*/
 		long startMatBit = System.currentTimeMillis();
-		Utils.matToBitmap(imageMat, scaledBitmap);
+		Utils.matToBitmap(procImageMat, scaledBitmap);
 		long endTime = System.currentTimeMillis();
 		
 		Log.d(TAG, "Mat2Bitmap took: " + (endTime-startMatBit) + " ms");
@@ -199,7 +184,7 @@ public class ImImage implements OnBitmapLoaded {
     	//Imgproc.adaptiveThreshold(imageMat, imageMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY_INV, 5, 4);
     	Utils.matToBitmap(tmpMat, scaledBitmap);
     	// Cleanup
-    	imageMat.release();
+    	origImageMat.release();
     	
     	this.notifyOnImageManipulated();
 	}
@@ -217,15 +202,30 @@ public class ImImage implements OnBitmapLoaded {
 	 * GETTER/SETTER
 	 *-----------------------------------------------------------------------------*/
 	public void loadImage(Uri uri) {
-		notifyOnLoadingNewImage();
-		
 		reset();
 		
 		// Initialize the file paths
 		this.imageUri = uri;
 		this.imagePath = FileUtils.getRealPathFromURI(context, uri);
-		this.imageName = uri.getLastPathSegment();
+		this.imageFileExt = imagePath.substring(imagePath.lastIndexOf(".") + 1, imagePath.length());
+		this.imageName = imagePath.substring(imagePath.lastIndexOf("/") + 1, imagePath.length() - imageFileExt.length() - 1);
 		
+		Log.d(TAG, "Image name: " + imageName);
+		Log.d(TAG, "Image extension: " + imageFileExt);
+		
+		if (openCvLoaded) {
+			loadImage();
+		} else {
+			pendingImageToLoad = true;
+		}
+		
+	}
+	
+	private void loadImage() {
+		pendingImageToLoad = false;
+		
+		notifyOnLoadingNewImage();
+				
 		// Read in the image size
 		updateImageSize();
 		
@@ -233,9 +233,9 @@ public class ImImage implements OnBitmapLoaded {
 		
 		// TODO load bitmap/load Mat
 		if (scaledBitmapHeight == UNKNOWN_SIZE || scaledBitmapWidth == UNKNOWN_SIZE) {
-			bitmapLoaderParams = new BitmapLoader.TaskParams(context, uri, width, height);
+			bitmapLoaderParams = new BitmapLoader.TaskParams(context, imageUri, width, height);
 		} else {
-			bitmapLoaderParams = new BitmapLoader.TaskParams(context, uri, scaledBitmapWidth, scaledBitmapHeight);
+			bitmapLoaderParams = new BitmapLoader.TaskParams(context, imageUri, scaledBitmapWidth, scaledBitmapHeight);
 		}
 		
 		// execute the task
@@ -246,18 +246,57 @@ public class ImImage implements OnBitmapLoaded {
 		bitmapLoader.execute(bitmapLoaderParams);
 		
 		// load the opencv mat
-		imageMat = Highgui.imread(imagePath);
+		origImageMat = Highgui.imread(imagePath);
+		procImageMat = new Mat();
 		
-		if (imageMat.empty()) {
+		if (origImageMat.empty()) {
 			Log.w(TAG, "Could not load the image to a OpenCV mat.");
+			imageLoaded = false;
 		} else {
-			Imgproc.cvtColor(imageMat, imageMat, Imgproc.COLOR_BGR2RGB);
+			Imgproc.cvtColor(origImageMat, origImageMat, Imgproc.COLOR_BGR2RGB);
+			imageLoaded = true;
 		}
-		
+	}
+	
+	public boolean saveImage(String path) {
+		if (imageLoaded) {
+			String fullSavePath = path + "/" + imageName + "." + imageFileExt;
+			
+			// TODO: This check does not work => compare if the file is overwritten in the destination!!!
+			// TODO: Do this check in the activity to notify the user properly
+			if (imagePath != fullSavePath) {
+				try {
+					Log.d(TAG, "Trying to save: " + imageName);
+					Log.d(TAG, "Save location: " + fullSavePath);
+					
+					Mat saveImageMat = new Mat();
+										
+					if (!procImageMat.empty()) {
+						Imgproc.cvtColor(procImageMat, saveImageMat, Imgproc.COLOR_RGB2BGR);
+					} else if (!origImageMat.empty()) {
+						Imgproc.cvtColor(origImageMat, saveImageMat, Imgproc.COLOR_RGB2BGR);
+					} else {
+						Log.e(TAG, "Could not save the image, because both the original and manipulated image are empty");
+						return false;
+					}
+					
+					Highgui.imwrite(fullSavePath, saveImageMat);
+				} catch (Exception e) {
+					Log.e(TAG, "I am sorry I could not save the image.");
+					e.printStackTrace();
+				}
+			} else {
+				Log.w(TAG, "Can not save file, because it already exists: " + imageName);
+			}
+			
+			return true;
+		} else {
+			return false;
+		}
 	}
 	
 	public Mat getImageMat() {
-		return imageMat;
+		return origImageMat;
 	}
 	
 	
@@ -304,6 +343,18 @@ public class ImImage implements OnBitmapLoaded {
 	public Matrix getExifRotationMatrix() {
 		return exifRotationMatrix;
 	}
+	
+	public void setOpenCvLoaded(boolean loaded) {
+		this.openCvLoaded = loaded;
+		
+		// Load an image that has been set bevore the opencv library was fully available
+		if (loaded && pendingImageToLoad)
+			loadImage();
+	}
+	
+	public boolean isImageLoaded() {
+		return imageLoaded;
+	}
 
 	/*-----------------------------------------------------------------------------
 	 * Listeners
@@ -317,7 +368,7 @@ public class ImImage implements OnBitmapLoaded {
 	/*-----------------------------------------------------------------------------
 	 * Listener interface implementation
 	 *-----------------------------------------------------------------------------*/
-	public void addOnImageChangedListener(OnImageChangedListener listener) {
+	public void setOnImageChangedListener(OnImageChangedListener listener) {
 		onImageChangeListenerList.add(listener);
 	}
 	

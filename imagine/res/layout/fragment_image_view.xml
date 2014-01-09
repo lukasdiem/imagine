@@ -1,8 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<at.ac.tuwien.caa.cvl.imagine.ui.view.PinchableImageView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/pinchableImageView"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#DEDEDE"
-    android:src="@raw/test" />
+    android:layout_height="match_parent" >
+
+    <at.ac.tuwien.caa.cvl.imagine.ui.view.PinchableImageView xmlns:android="http://schemas.android.com/apk/res/android"
+	    android:id="@+id/pinchableImageView"
+	    android:layout_width="match_parent"
+	    android:layout_height="match_parent"
+	    android:background="#EFEFEF" />
+
+    <ImageButton
+        android:id="@+id/btnOpenImage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:background="@null"
+        android:contentDescription="@string/btnOpenImageDesc"
+        android:scaleType="center"
+        android:src="@drawable/ic_open_image" />
+
+	<ProgressBar
+		    android:id="@+id/pbImageView"
+		    style="?android:attr/progressBarStyleLarge"
+		    android:layout_width="wrap_content"
+		    android:layout_height="wrap_content"
+		    android:layout_centerHorizontal="true"
+		    android:layout_centerVertical="true"
+		    android:visibility="gone" />
+</RelativeLayout>
 

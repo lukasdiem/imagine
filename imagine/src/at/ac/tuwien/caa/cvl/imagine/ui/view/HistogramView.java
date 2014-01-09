@@ -282,7 +282,7 @@ public class HistogramView extends SurfaceView implements SurfaceHolder.Callback
 		this.image = image;
 		
 		// Add myself to the list of listeners
-		image.addOnImageChangedListener(this);
+		image.setOnImageChangedListener(this);
 	}
 		
 	
