@@ -38,6 +38,8 @@ import android.view.View.OnClickListener;
 import android.view.ViewTreeObserver;
 import android.view.View.OnTouchListener;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
@@ -65,6 +67,8 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
 	
 	private SeekBar sliderContrast;
 	private SeekBar sliderBrightness;
+	
+	private CheckBox chkCartoonize;
 	
 	private GestureDetector gestureDetector;
 	
@@ -138,6 +142,18 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
         sliderContrast = (SeekBar) findViewById(R.id.sliderContrast);
         if (sliderContrast != null) {
         	sliderContrast.setOnSeekBarChangeListener(this);
+        }
+        
+        chkCartoonize = (CheckBox) findViewById(R.id.chkCartoonize);
+        if (chkCartoonize != null) {
+        	chkCartoonize.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+				@Override
+				public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+					if (isChecked && image.isImageLoaded()) {
+						image.cartoonize(8, 0.5f, 0);
+					}
+				}	
+        	});
         }
         
     }

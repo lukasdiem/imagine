@@ -10,5 +10,6 @@
     <string name="sliderContrast">Contrast:</string>
     <string name="btnOpenImageDesc">Open Image</string>
     <string name="action_save_image">Save</string>
+    <string name="chkCartoonize">Cartoonize Image</string>
 
 </resources>

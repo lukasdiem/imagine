@@ -8,8 +8,11 @@ import java.util.List;
 
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.Size;
+import org.opencv.core.TermCriteria;
 import org.opencv.highgui.Highgui;
 import org.opencv.imgproc.Imgproc;
 
@@ -189,6 +192,56 @@ public class ImImage implements OnBitmapLoaded {
     	this.notifyOnImageManipulated();
 	}
 	
+	public void cartoonize2() {
+		/*Mat tmpMat = new Mat();
+		procImageMat.convertTo(tmpMat, CvType.CV_32FC3);
+		tmpMat = tmpMat.reshape(1, tmpMat.rows()*tmpMat.cols());
+		
+		Mat labels = new Mat();
+		Core.kmeans(tmpMat, 10, labels, criteria, attempts, flags)*/
+		
+		
+		Imgproc.GaussianBlur( procImageMat, procImageMat, new Size(3,3), 0);
+		
+		Mat grayscale = new Mat(procImageMat.rows(), procImageMat.cols(), CvType.CV_8U);
+		Imgproc.cvtColor(procImageMat, grayscale, Imgproc.COLOR_RGB2GRAY);
+		
+		Mat gradX = new Mat();
+		Mat gradY = new Mat();
+		Mat grad = new Mat(procImageMat.rows(), procImageMat.cols(), CvType.CV_8UC1);
+		
+		Imgproc.Sobel(grayscale, gradX, CvType.CV_16S, 1, 0, 3, 1, 0);
+		Core.convertScaleAbs(gradX, gradX);
+		
+		Imgproc.Sobel(grayscale, gradY, CvType.CV_16S, 0, 1, 3, 1, 0);
+		Core.convertScaleAbs(gradY, gradY);
+		
+		Core.addWeighted(gradX, 0.5, gradY, 0.5, 0, grad);
+		
+		
+
+		//Imgproc.Canny(procImageMat, edgeMat, 100, 150);
+		Imgproc.medianBlur(procImageMat, procImageMat, 11);
+		
+		Imgproc.cvtColor(grad, grad, Imgproc.COLOR_GRAY2RGB);
+		Core.add(procImageMat, grad, procImageMat);
+		
+		// Update the bitmap
+		//Utils.matToBitmap(procImageMat, scaledBitmap);
+		Utils.matToBitmap(procImageMat, scaledBitmap);
+		
+		this.notifyOnImageManipulated();
+	}
+	
+	public void cartoonize(int colorCount, float edgeWeight, int edgeThickness) {
+		//Mat test = new Mat();
+		ImJniImageProcessing.cartoonize(procImageMat.nativeObj, procImageMat.nativeObj, colorCount, edgeWeight, edgeThickness);
+		
+		Utils.matToBitmap(procImageMat, scaledBitmap);
+		
+		this.notifyOnImageManipulated();
+	}
+	
 	public void reset() {
 		this.width = UNKNOWN_SIZE;
 		this.height = UNKNOWN_SIZE;
@@ -247,13 +300,13 @@ public class ImImage implements OnBitmapLoaded {
 		
 		// load the opencv mat
 		origImageMat = Highgui.imread(imagePath);
-		procImageMat = new Mat();
 		
 		if (origImageMat.empty()) {
 			Log.w(TAG, "Could not load the image to a OpenCV mat.");
 			imageLoaded = false;
 		} else {
 			Imgproc.cvtColor(origImageMat, origImageMat, Imgproc.COLOR_BGR2RGB);
+			procImageMat = origImageMat.clone();
 			imageLoaded = true;
 		}
 	}

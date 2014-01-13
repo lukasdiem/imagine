@@ -7,68 +7,107 @@
 
 #include "JniImageProcessing.h"
 
-#include <opencv2/core/core.hpp>
+#include <jni.h>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <stdlib.h>
 #include <math.h>
+#include <limits>
 //#include <opencv2/core/mat.hpp>
 
-//using namespace std;
-//using namespace cv;
+namespace ld {
 
-/*extern "C" {
-	JNIEXPORT void JNICALL Java_test_JniTest_brightnessContrast (JNIEnv * jenv, jobject thiz, jint contrast, jint brightness);
-	JNIEXPORT void JNICALL Java_test_JniTest_helloJNI(JNIEnv * jenv, jobject thiz);
-}*/
+void edgeDetection(const cv::Mat& srcImg, cv::Mat& dstImg, int thickness) {
+	cv::Mat grayscale(srcImg.rows, srcImg.cols, CV_8UC1);
+	cv::Mat gradX, gradY;
 
-JNIEXPORT void JNICALL Java_at_ac_tuwien_caa_cvl_imagine_image_ImJniImageProcessing_brightnessContrast
-(JNIEnv * jenv, jobject thiz, jlong addrSrcMat, jlong addrDstMat, jfloat jcontrast, jfloat jbrightness)
-{
-	//LOGD("Java_org_opencv_samples_facedetect_DetectionBasedTracker_nativeCreateObject enter");
-	//LOGD(LOG_TAG, std::string("Params, brightness: ") + std::string(brightness) + std::string(", contrast: ") + std::string(contrast));
+	cv::cvtColor(srcImg, grayscale, cv::COLOR_RGB2GRAY);
+	cv::GaussianBlur(grayscale, grayscale, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT);
 
-	// Get the image
-	cv::Mat& srcMat = *(cv::Mat*)addrSrcMat;
-	cv::Mat& dstMat = *(cv::Mat*)addrDstMat;
+	cv::Sobel(grayscale, gradX, CV_16S, 1, 0, 3, 1, 0);
+	cv::convertScaleAbs(gradX, gradX);
 
-	// Adjust brightness and contrast!
-	dstMat = srcMat * (float)jcontrast + cv::Scalar(jbrightness, jbrightness, jbrightness, 0);
+	cv::Sobel(grayscale, gradY, CV_16S, 0, 1, 3, 1, 0);
+	cv::convertScaleAbs(gradY, gradY);
 
-	/*for( y = 0; y < nRows*nCols; ++y) {
-		pixelVal = saturate_cast<uchar>(((float)p[y] * contrast + brightness));
+	cv::addWeighted(gradX, 0.5, gradY, 0.5, 0, dstImg);
 
-		/*if (pixelVal < 255.0f) {
-			p[y] = (uchar)pixelVal;
-		} else if (pixelVal < 0.0f) {
-			p[y] = (uchar)0;
-		} else {
-			p[y] = (uchar)255;
-		}*/
-	//}
+	if (thickness > 0) {
+		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+		                                       	    cv::Size(2*thickness + 1, 2*thickness+1),
+		                                       	    cv::Point(thickness, thickness));
+		cv::dilate(dstImg, dstImg, element);
+	}
+}
 
-	/*
-	for( y = 0; y < nRows; ++y) {
-		p = imageMat.ptr<uchar>(y);
+void cartoonize(const cv::Mat& srcImg, cv::Mat& dstImg, int colorCount, float edgeWeight, int edgeThickness) {
+	int attempts = 1;
+	cv::Mat labels, centers;
+	cv::TermCriteria criteria(cv::TermCriteria::EPS + cv::TermCriteria::MAX_ITER, 5000, 0.001);
 
-		for ( x = 0; x < nCols; ++x) {
-			pixelVal = ((float)p[x] * contrast + brightness);
+	int width = srcImg.cols;
+	int height = srcImg.rows;
+	int nChannels = srcImg.channels();
 
-			//p[x] = (uchar)pixelVal;
-			if (pixelVal < 255.0f) {
-				p[x] = (uchar)pixelVal;
-			} else if (pixelVal < 0.0f) {
-				p[x] = (uchar)0;
-			} else {
-				p[x] = (uchar)255;
-			}
+	int smallWidth = 50;
+	int smallHeight = smallWidth * srcImg.rows / srcImg.cols;
 
+	cv::Mat smallImg(smallHeight, smallWidth, CV_8UC3);
+	cv::resize(srcImg, smallImg, cv::Size(smallWidth, smallHeight), 0, 0, cv::INTER_NEAREST);
+
+	cv::Mat quantInput = smallImg.reshape(1, smallWidth * smallHeight);
+	quantInput.convertTo(quantInput, CV_32FC1);
+	cv::kmeans(quantInput, colorCount, labels, criteria, attempts, cv::KMEANS_PP_CENTERS, centers);
+
+	// Convert the centers to the correct image format, otherwise the distance measure does not work
+	centers.convertTo(centers, CV_8UC1);
+
+	int row, col, clust, minColDistIdx;
+	float minColDist = std::numeric_limits<float>::infinity();
+	float actDist;
+	uchar* dstImgPtr;
+	uchar* clustPtr; // = centers.data;
+	const uchar* srcImgPtr;
+
+	for(row = 0; row < height; row++) {
+		dstImgPtr = dstImg.ptr<uchar>(row);
+		srcImgPtr = srcImg.ptr<uchar>(row);
+
+		for (col = 0; col < width * nChannels; col += 3) {
+			for (clust = 0; clust < colorCount; clust ++) {
+				clustPtr = centers.ptr<uchar>(clust);
+
+				actDist = std::abs(srcImgPtr[col] - clustPtr[0]) +
+						  std::abs(srcImgPtr[col+1] - clustPtr[1]) +
+						  std::abs(srcImgPtr[col+2] - clustPtr[2]);
+
+				if (actDist < minColDist) {
+					minColDist = actDist;
+					minColDistIdx = clust;
+				}
+ 			}
+
+			clustPtr = centers.ptr<uchar>(minColDistIdx);
+			dstImgPtr[col] 	 = clustPtr[0];
+			dstImgPtr[col+1] = clustPtr[1];
+			dstImgPtr[col+2] = clustPtr[2];
+
+			minColDist = std::numeric_limits<float>::infinity();
 		}
-	}*/
+	}
 
-	//return 0;
+	// Blur the quantized image a little bit (better look)
+	cv::GaussianBlur(dstImg, dstImg, cv::Size(3,3), 0, 0, cv::BORDER_DEFAULT);
+
+	if (edgeWeight != 0) {
+		// Enhance the edges if this is wanted
+		cv::Mat edgeImg(height, width, CV_8UC1);
+		edgeDetection(srcImg, edgeImg, edgeThickness);
+
+		cvtColor(edgeImg, edgeImg, CV_GRAY2RGB);
+		cv::addWeighted(dstImg, 1.0, edgeImg, edgeWeight, 0, dstImg);
+	}
+}
 }
 
-JNIEXPORT void JNICALL Java_at_ac_tuwien_caa_cvl_imagine_image_ImJniImageProcessing_helloJNI(JNIEnv * jenv, jobject thiz) {
-	LOGD("Hello JNI!");
-}
 
 
