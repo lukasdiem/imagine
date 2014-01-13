@@ -212,7 +212,7 @@ public class PinchableImageView extends ImageView implements
 	@Override
 	public boolean onTouch(View v, MotionEvent event) {
 		// Only except events if an image is available
-		if (image.isImageLoaded()) {
+		if (image != null && image.isImageLoaded()) {
 			// Let the gesture detectors inspect all events.
 		    mScaleDetector.onTouchEvent(event);
 		    gestureDetector.onTouchEvent(event);

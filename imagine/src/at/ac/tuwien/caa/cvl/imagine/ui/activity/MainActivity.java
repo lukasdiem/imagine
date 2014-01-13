@@ -203,7 +203,7 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_actionbar, menu);
+        getMenuInflater().inflate(R.menu.menu_actionbar_image_view, menu);
         return true;
     }
     
