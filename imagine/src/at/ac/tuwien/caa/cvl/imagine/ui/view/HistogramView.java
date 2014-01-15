@@ -188,6 +188,8 @@ public class HistogramView extends SurfaceView implements SurfaceHolder.Callback
 	}
 	
 	public void updateHistogram() {	
+		Log.d(TAG, "Updating the histogram view");
+		
 		if (!isCreated) {
 			Log.w(TAG, "Tried to update the Histogram before the surface is created");
 			return;
@@ -252,12 +254,13 @@ public class HistogramView extends SurfaceView implements SurfaceHolder.Callback
 	
 	@Override
 	public void onImageManipulated() {
-		if (image.getScaledBitmap() != null) {
+		/*if (image.getScaledBitmap() != null) {
 			cvImgMat = new Mat();
 			Utils.bitmapToMat(image.getScaledBitmap(), cvImgMat);
 		}
     	
-    	this.setImageMat(cvImgMat);
+    	this.setImageMat(cvImgMat);*/
+    	this.setImageMat(image.getManipulatedImageMat());
 	}
 
 	@Override
@@ -267,10 +270,11 @@ public class HistogramView extends SurfaceView implements SurfaceHolder.Callback
 
 	@Override
 	public void onNewImageLoaded() {
-		cvImgMat = new Mat();
+		/*cvImgMat = new Mat();
 		Utils.bitmapToMat(image.getScaledBitmap(), cvImgMat);
     	
-    	this.setImageMat(cvImgMat);
+    	this.setImageMat(cvImgMat);*/
+		this.setImageMat(image.getManipulatedImageMat());
 	}
 	
 	
@@ -279,10 +283,12 @@ public class HistogramView extends SurfaceView implements SurfaceHolder.Callback
 	}
 
 	public void setImage(ImImage image) {
-		this.image = image;
+		if (this.image == null && this.image != image) {
+			// Add myself to the list of listeners
+			image.setOnImageChangedListener(this);
+		}
 		
-		// Add myself to the list of listeners
-		image.setOnImageChangedListener(this);
+		this.image = image;
 	}
 		
 	

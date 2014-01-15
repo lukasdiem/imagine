@@ -16,8 +16,10 @@ import org.opencv.core.TermCriteria;
 import org.opencv.highgui.Highgui;
 import org.opencv.imgproc.Imgproc;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
@@ -30,9 +32,12 @@ public class ImImage implements OnBitmapLoaded {
 	//@SuppressWarnings("unused")
 	private static final String TAG = ImImage.class.getSimpleName();
 	private static final int UNKNOWN_SIZE = -1;
+	private static final int DOWNSAMPLED_SIZE = 1024;
 	
 	protected Context 	context;
 	
+	private ImImageLoader loaderRunnable;
+		
 	// The listeners
 	private List<OnImageChangedListener> onImageChangeListenerList;
 	
@@ -112,12 +117,12 @@ public class ImImage implements OnBitmapLoaded {
 			height = options.outHeight;
 			
 			// Change width and height if the orientation is 90 or 270			
-			if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90 || 
+			/*if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90 || 
 					exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {
 
 				width = options.outHeight;
 				height = options.outWidth;
-			}
+			}*/
 		} catch (FileNotFoundException eFnF) {
 			Log.e(TAG, "Could not read width and height from the file");
 			eFnF.printStackTrace();
@@ -144,16 +149,16 @@ public class ImImage implements OnBitmapLoaded {
 	}
 	
 	private float exifOrientationToRotation(int exifOrientation) {
-		float rotation = 0;
+		float rotation = 0f;
 		
 		switch(exifOrientation) {
-			case ExifInterface.ORIENTATION_NORMAL: rotation = 0;
+			case ExifInterface.ORIENTATION_NORMAL: rotation = 0f;
 				break;
-			case ExifInterface.ORIENTATION_ROTATE_90: rotation = 90;
+			case ExifInterface.ORIENTATION_ROTATE_90: rotation = 90f;
 				break;
-			case ExifInterface.ORIENTATION_ROTATE_180: rotation = 180;
+			case ExifInterface.ORIENTATION_ROTATE_180: rotation = 180f;
 				break;
-			case ExifInterface.ORIENTATION_ROTATE_270: rotation = 270;
+			case ExifInterface.ORIENTATION_ROTATE_270: rotation = 270f;
 				break;
 			default: Log.d(TAG, "Do not knot the exif orientation flag: " + exifOrientation);
 		}
@@ -234,10 +239,28 @@ public class ImImage implements OnBitmapLoaded {
 	}
 	
 	public void cartoonize(int colorCount, float edgeWeight, int edgeThickness) {
-		//Mat test = new Mat();
 		ImJniImageProcessing.cartoonize(procImageMat.nativeObj, procImageMat.nativeObj, colorCount, edgeWeight, edgeThickness);
 		
 		Utils.matToBitmap(procImageMat, scaledBitmap);
+		
+		this.notifyOnImageManipulated();
+	}
+	
+	public void edgeEffect(int edgeThickness) {
+		ImJniImageProcessing.edgeEffect(procImageMat.nativeObj, procImageMat.nativeObj, edgeThickness);
+		
+		Utils.matToBitmap(procImageMat, scaledBitmap);
+		
+		this.notifyOnImageManipulated();
+	}
+	
+	public void sepiaEffect() {
+		ImJniImageProcessing.sepiaEffect(procImageMat.nativeObj, procImageMat.nativeObj);
+		
+		Utils.matToBitmap(procImageMat, scaledBitmap);
+		
+		origImageMat.release();
+		origImageMat = procImageMat.clone();
 		
 		this.notifyOnImageManipulated();
 	}
@@ -274,7 +297,7 @@ public class ImImage implements OnBitmapLoaded {
 		
 	}
 	
-	private void loadImage() {
+	/*private void loadImage() {
 		pendingImageToLoad = false;
 		
 		notifyOnLoadingNewImage();
@@ -309,6 +332,22 @@ public class ImImage implements OnBitmapLoaded {
 			procImageMat = origImageMat.clone();
 			imageLoaded = true;
 		}
+		
+		notifyOnNewImageLoaded();
+	}*/
+	
+	private void loadImage() {
+		pendingImageToLoad = false;
+		
+		notifyOnLoadingNewImage();
+				
+		if (loaderRunnable == null) {
+			loaderRunnable = new ImImageLoader();
+		}
+		
+		new Thread(loaderRunnable).start();
+		
+		//notifyOnNewImageLoaded();
 	}
 	
 	public boolean saveImage(String path) {
@@ -348,8 +387,8 @@ public class ImImage implements OnBitmapLoaded {
 		}
 	}
 	
-	public Mat getImageMat() {
-		return origImageMat;
+	public Mat getManipulatedImageMat() {
+		return procImageMat;
 	}
 	
 	
@@ -415,14 +454,15 @@ public class ImImage implements OnBitmapLoaded {
 	@Override
 	public void onBitmapLoaded(Bitmap bitmap) {
 		this.scaledBitmap = bitmap;
-		notifyOnNewImageLoaded();		
+		//notifyOnNewImageLoaded();		
 	}
 	
 	/*-----------------------------------------------------------------------------
 	 * Listener interface implementation
 	 *-----------------------------------------------------------------------------*/
 	public void setOnImageChangedListener(OnImageChangedListener listener) {
-		onImageChangeListenerList.add(listener);
+		if (!onImageChangeListenerList.contains(listener))
+			onImageChangeListenerList.add(listener);
 	}
 	
 	private void notifyOnLoadingNewImage() {
@@ -442,6 +482,64 @@ public class ImImage implements OnBitmapLoaded {
 	private void notifyOnImageManipulated() {
 		for (OnImageChangedListener listener:onImageChangeListenerList) {
 			listener.onImageManipulated();
+		}
+	}
+	
+	
+	class ImImageLoader implements Runnable {
+		@Override
+		public void run() {
+			// Update the image size
+			updateImageSize();
+			
+			Log.d(TAG, "Exif orientation: " + exifRotation);
+			
+			// Calculate the downsampled size
+			calcDownsampledSize();
+			
+			if (origImageMat == null) origImageMat = new Mat();
+			
+			// Load the image with opencv			
+			ImJniImageProcessing.loadImage(imagePath, origImageMat.nativeObj, scaledBitmapWidth, scaledBitmapHeight, exifRotation);
+			procImageMat = origImageMat.clone();
+			
+			if (scaledBitmap != null) {
+				scaledBitmap.recycle();
+			}
+			
+			scaledBitmap = Bitmap.createBitmap(scaledBitmapWidth, scaledBitmapHeight, Config.ARGB_8888);
+			
+			Utils.matToBitmap(origImageMat, scaledBitmap);
+			
+			// Notify the listeners that a new image is available
+			/*activity.runOnUiThread(new Runnable() {
+			    public void run() {
+			        Toast.makeText(activity, "Hello, world!", Toast.LENGTH_SHORT).show();
+			    }
+			});*/
+			
+			imageLoaded = true;
+			
+			((Activity)context).runOnUiThread(new Runnable() {
+				@Override
+				public void run() {
+					notifyOnNewImageLoaded();
+				}
+			});
+			
+		}
+		
+		private void calcDownsampledSize() {
+			if (width > height) {
+				scaledBitmapWidth = DOWNSAMPLED_SIZE;
+				scaledBitmapHeight = (int)Math.floor((double)height * (double)DOWNSAMPLED_SIZE / (double)width);
+			} else {
+				scaledBitmapWidth = (int)Math.floor((double)width * (double)DOWNSAMPLED_SIZE / (double)height);
+				scaledBitmapHeight= DOWNSAMPLED_SIZE;
+			}
+			
+			Log.d(TAG, "Downsampled size: " + scaledBitmapWidth + "x" + scaledBitmapHeight);
+			Log.d(TAG, "Original size:    " + width + "x" + height);
 		}
 	}
 }

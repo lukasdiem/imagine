@@ -387,7 +387,9 @@ public class MainActivity extends ActionBarActivity implements OnSeekBarChangeLi
 		
 		Log.d(TAG, "Brighntess: " + brightness + ", contrast: " + contrast);
 		
-		image.changeBrightnessContrast(brightness, contrast);
+		if (image != null && image.isImageLoaded()) {
+			image.changeBrightnessContrast(brightness, contrast);
+		}
 	}
 
 	@Override

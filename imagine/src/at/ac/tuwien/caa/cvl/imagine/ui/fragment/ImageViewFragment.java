@@ -1,17 +1,19 @@
-package at.ac.tuwien.caa.cvl.imagine.ui.activity;
+package at.ac.tuwien.caa.cvl.imagine.ui.fragment;
 
 import java.io.File;
 
-import android.annotation.SuppressLint;
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+
 import android.app.Activity;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.ActionBar;
+import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
-import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -19,24 +21,18 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
-import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
-import android.widget.SeekBar;
 import android.widget.Toast;
 import at.ac.tuwien.caa.cvl.imagine.R;
 import at.ac.tuwien.caa.cvl.imagine.image.ImImage;
 import at.ac.tuwien.caa.cvl.imagine.image.OnImageChangedListener;
-import at.ac.tuwien.caa.cvl.imagine.ui.activity.MainActivity.MainActivityGestureListener;
-import at.ac.tuwien.caa.cvl.imagine.ui.view.HistogramView;
 import at.ac.tuwien.caa.cvl.imagine.ui.view.PinchableImageView;
 
-public class ImageViewFragment extends Fragment implements OnImageChangedListener, OnClickListener {
+public class ImageViewFragment extends Fragment implements OnClickListener, OnImageChangedListener {
 	private final static String TAG = ImageViewFragment.class.getSimpleName();
 	
 	private static final int INTENT_SELECT_IMAGE = 1;
-	
-	private ActionBar actionBar;
 	
 	private ImImage image;
 	
@@ -45,6 +41,42 @@ public class ImageViewFragment extends Fragment implements OnImageChangedListene
 	private ProgressBar imageViewLoading;
 	
 	private ImageButton btnOpenImage;
+	
+	private ActionBar actionBar;
+	
+	private OnImageViewAttachedListener imageViewAttachedListener; 
+	
+	private BaseLoaderCallback openCvLoaderCallback = new BaseLoaderCallback(this.getActivity()) {
+	    @Override
+	    public void onManagerConnected(int status) {
+	    	removeLoadingState();
+	    	
+	        switch (status) {
+	            case LoaderCallbackInterface.SUCCESS: {
+	                Log.i(TAG, "OpenCV loaded successfully");
+	                // Set the correct state!
+	                image.setOpenCvLoaded(true);
+	            } break;
+	            default: {
+	                super.onManagerConnected(status);
+	            } break;
+	        }
+	    }
+	};
+	
+    public interface OnImageViewAttachedListener {
+        public void onImageViewAttachedListener(ImImage image);
+    }
+    
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        try {
+            imageViewAttachedListener = (OnImageViewAttachedListener) activity;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(activity.toString() + " must implement OnImageLoadListener");
+        }
+    }
 	
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -65,6 +97,7 @@ public class ImageViewFragment extends Fragment implements OnImageChangedListene
         // Initialize the image
         image = new ImImage(getView().getContext());
         image.setOnImageChangedListener(this);
+        imageViewAttachedListener.onImageViewAttachedListener(image);
         
         // Get the image view
         imageView = (PinchableImageView) getView().findViewById(R.id.pinchableImageView);
@@ -77,6 +110,27 @@ public class ImageViewFragment extends Fragment implements OnImageChangedListene
         if (btnOpenImage != null) {
         	btnOpenImage.setOnClickListener(this);
         }
+        
+        // Get the actionbar
+        actionBar = ((ActionBarActivity)this.getActivity()).getSupportActionBar();
+        if (actionBar != null && imageView != null) {
+        	imageView.setActionBar(actionBar);
+        }
+    }
+    
+    @Override
+    public void onResume() {
+    	super.onResume();
+
+    	showLoadingState();
+    	
+    	image.setOpenCvLoaded(false);
+    	
+    	if (!OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_6, this.getView().getContext(), openCvLoaderCallback)) {
+    	    Log.e(TAG, "Cannot connect to the OpenCV Manager");
+    	    
+    	    removeLoadingState();
+    	}
     }
     
     @Override
@@ -145,68 +199,33 @@ public class ImageViewFragment extends Fragment implements OnImageChangedListene
     	switch (requestCode) {
 	    	case INTENT_SELECT_IMAGE:
 	    		if(resultCode == Activity.RESULT_OK) {      
-	    			final Uri selectedImageUri = data.getData();
-	    			Log.d(TAG, "Image uri: " + selectedImageUri.toString());
-	    			
-	    			image.loadImage(selectedImageUri);
-	    			
-	    			/*    				    				
-    				// Sometimes the image view seems to be cleaned up during the user selects its image => reinitialize it!
-					// Get the image view
-				    final PinchableImageView finalImageView = (PinchableImageView) findViewById(R.id.pinchableImageView);
-	    			//final Context callerContext = this; 
-				    
-				    ViewTreeObserver vto = finalImageView.getViewTreeObserver();
-				    vto.addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
-
-				        @Override
-				        public void onGlobalLayout() {
-				        	image.loadImage(selectedImageUri);
-				        	/*try {
-					        	// NEVER try to access the imageview here => sometimes it is not loaded => nullpointer
-								Bitmap downsampledBitmap = BitmapLoader.decodeResizedBitmap(callerContext, 
-										selectedImageUri, finalImageView.getWidth(), finalImageView.getHeight());
-								
-								String imagePath = FileUtils.getRealPathFromURI(callerContext, selectedImageUri);
-								
-								float imageOrientation = 0.0f;
-								ExifInterface exif = new ExifInterface(imagePath);
-								int exifOrientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, 0);
-															
-								switch (exifOrientation) {
-									case ExifInterface.ORIENTATION_ROTATE_90: imageOrientation = 90.0f;
-										break;
-									case ExifInterface.ORIENTATION_ROTATE_180: imageOrientation = 180.0f;
-										break;
-									case ExifInterface.ORIENTATION_ROTATE_270: imageOrientation = 270.0f;
-										break;
-								}
-								
-								imageView.setImageBitmap(downsampledBitmap);
-								imageView.setImageRotation(imageOrientation);
-							} catch (FileNotFoundException e1) {
-								Log.w(TAG, "Could not load image from: " + selectedImageUri.toString());
-								Toast.makeText(callerContext, "Sorry, couldn't load the image!", Toast.LENGTH_SHORT).show();
-							} catch (IOException e) {
-								Log.e(TAG, "Could not read the exif information!");
-								e.printStackTrace();
-							} 
-				        	
-				            ViewTreeObserver obs = finalImageView.getViewTreeObserver();
-				            // Remove the view tree observer such that is not called again
-				            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-				                obs.removeOnGlobalLayoutListener(this);
-				            } else {
-				                obs.removeGlobalOnLayoutListener(this);
-				            }
-				        }
-				    });
-				    */
+	    			// Set the call to load the image
+	    			if (image != null) {
+	    				image.loadImage(data.getData());
+	    			}
 	    		} else if (resultCode == Activity.RESULT_CANCELED) {
 	    			// Inform the user that he cancelled the image selection
 	    			Toast.makeText(this.getView().getContext(), "Image selection cancelled.", Toast.LENGTH_SHORT).show();
 	    		}
 	    		break;    		
+    	}
+    }
+    
+    private void showLoadingState() {
+    	imageViewLoading.setVisibility(View.VISIBLE);
+    	btnOpenImage.setVisibility(View.GONE);
+    	
+    	Log.d(TAG, "Showing loading spinner...");
+    	// TODO: Disable the whole user interface
+    }
+    
+    private void removeLoadingState() {
+    	imageViewLoading.setVisibility(View.GONE);
+    	
+    	if (image.isImageLoaded()) {
+    		btnOpenImage.setVisibility(View.GONE);
+    	} else {
+    		btnOpenImage.setVisibility(View.VISIBLE);
     	}
     }
 
@@ -218,13 +237,11 @@ public class ImageViewFragment extends Fragment implements OnImageChangedListene
 
 	@Override
 	public void onLoadingNewImage() {
-		// TODO Auto-generated method stub
-		
+		showLoadingState();
 	}
 
 	@Override
 	public void onNewImageLoaded() {
-		// TODO Auto-generated method stub
-		
+		removeLoadingState();
 	}
 }

@@ -8,9 +8,17 @@
     <string name="title_activity_image_slider">ImageSliderActivity</string>
     <string name="sliderBrightness">Brightness:</string>
     <string name="sliderContrast">Contrast:</string>
+    <string name="sliderColorCount">Number of colors:</string>
+    <string name="sliderEdgeWeight">Edge strength:</string>
+    <string name="sliderEdgeThickness">Edge width:</string>
     <string name="btnOpenImageDesc">Open Image</string>
     <string name="action_save_image">Save</string>
     <string name="chkCartoonize">Cartoonize Image</string>
     <string name="title_activity_edit_image">Edit Images</string>
-
+    <string name="btnApply">Apply Effect</string>
+    
+    <string name="headingCartoonize">Cartoon Effect</string>
+    <string name="headingBrightnessContrast">Image Enhancement</string>
+    <string name="headingEdgeEffect">Edge Effect</string>
+    <string name="headingSepiaEffect">Sepia Effect</string>
 </resources>

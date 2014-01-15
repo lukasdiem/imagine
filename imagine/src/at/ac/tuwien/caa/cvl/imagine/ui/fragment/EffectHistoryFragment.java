@@ -1,4 +1,4 @@
-package at.ac.tuwien.caa.cvl.imagine.ui.activity;
+package at.ac.tuwien.caa.cvl.imagine.ui.fragment;
 
 import android.support.v4.app.Fragment;
 

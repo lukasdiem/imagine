@@ -19,6 +19,7 @@ import android.widget.ImageView;
 import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.EdgeEffectCompat;
+import android.support.v7.app.ActionBar;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -38,7 +39,7 @@ public class PinchableImageView extends ImageView implements
 	
 	
 	private static enum EnumGesture {
-		NONE, ZOOM, DRAG
+		NONE, ZOOM, DRAG, TAP
 	}
 		
 	private EnumGesture lastGesture;
@@ -66,6 +67,8 @@ public class PinchableImageView extends ImageView implements
 	private EdgeEffectCompat mEdgeEffectBottom;
 	private EdgeEffectCompat mEdgeEffectLeft;
 	private EdgeEffectCompat mEdgeEffectRight;
+	
+	private ActionBar actionBar;
 
 	
 	private float scale = 1.0f;
@@ -157,6 +160,10 @@ public class PinchableImageView extends ImageView implements
 		return viewBounds;
 	}
 
+	public void setActionBar(ActionBar actionBar) {
+		this.actionBar = actionBar;
+	}
+	
 	/*----------------------------------------------------------------------
 	 * Implemented Listeners
 	 -----------------------------------------------------------------------*/
@@ -199,7 +206,8 @@ public class PinchableImageView extends ImageView implements
 	}
 
 	@Override
-	public boolean onScaleBegin(ScaleGestureDetector detector) {		
+	public boolean onScaleBegin(ScaleGestureDetector detector) {
+		Log.d(TAG, "Scale begins!");
 		return true;
 	}
 
@@ -227,7 +235,7 @@ public class PinchableImageView extends ImageView implements
 		    switch (action) { 
 			    case MotionEvent.ACTION_DOWN: { // One finger is on the screen
 			        if (event.getPointerCount() == 1) {
-			        	lastGesture = EnumGesture.DRAG;
+			        	lastGesture = EnumGesture.TAP;
 			        	lastFingerPos.set(event.getX(), event.getY());
 			        }
 			        
@@ -235,7 +243,8 @@ public class PinchableImageView extends ImageView implements
 			    }
 			    		            
 			    case MotionEvent.ACTION_MOVE: { // The user is dragging
-			        if (event.getPointerCount() == 1 && lastGesture == EnumGesture.DRAG) {		        	
+			        if (event.getPointerCount() == 1 && lastGesture == EnumGesture.TAP || lastGesture == EnumGesture.DRAG) {		        	
+			        	lastGesture = EnumGesture.DRAG;
 			        	needsInvalidate = translateImage(event.getX() - lastFingerPos.x, event.getY() - lastFingerPos.y);
 			        	
 			        	// Remember this pos
@@ -251,6 +260,11 @@ public class PinchableImageView extends ImageView implements
 			    	if (event.getPointerCount() == 0) {
 			    		// Reset the gestures
 			    		lastGesture = EnumGesture.NONE;
+			    		
+			    		// We do not need to consider this event because it was a tap
+			    		if (lastGesture == EnumGesture.TAP) {
+			    			return false;
+			    		}
 			    	}
 			    		
 		    		if (!mEdgeEffectTop.onRelease()) {
@@ -276,8 +290,8 @@ public class PinchableImageView extends ImageView implements
 		    if (needsInvalidate) {
 		    	this.invalidate();
 		    }
-		    
-			return true;
+
+		    return true;
 		} else {
 			return false;
 		}
@@ -527,9 +541,14 @@ public class PinchableImageView extends ImageView implements
         
         @Override
      	public boolean onSingleTapConfirmed(MotionEvent e) {
-        	Log.d(TAG, "single tap detected");
-        	        	
-        	return false;
+        	if (actionBar != null) {
+        		if (actionBar.isShowing()) {
+        			actionBar.hide();
+        		} else {
+        			actionBar.show();
+        		}
+        	}
+        	return true;
         }
     }
 

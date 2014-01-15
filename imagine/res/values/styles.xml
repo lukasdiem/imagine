@@ -1,7 +1,7 @@
 <!-- 
 	Default styles for API8+
  -->
-<resources>    
+<resources xmlns:android="http://schemas.android.com/apk/res/android">    
 	<!-- the theme applied to the application or activity -->
     <style name="ImagineActionBarTheme"
            parent="@style/Theme.AppCompat.Light.DarkActionBar">
@@ -17,5 +17,17 @@
 
         <!-- Support library compatibility -->
         <item name="background">@drawable/actionbar_background</item>
+    </style>
+    
+    <style name="ControlGroup">
+        <item name="android:background">@drawable/shape_control_group</item>
+        <item name="android:layout_marginTop">10dp</item>
+        <item name="android:padding">8dp</item>
+    </style>
+    
+    <style name="ControlGroupHeading" parent="@android:style/TextAppearance.Medium">
+        <item name="android:layout_gravity">center_horizontal</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:textStyle">normal</item>
     </style>
 </resources>
