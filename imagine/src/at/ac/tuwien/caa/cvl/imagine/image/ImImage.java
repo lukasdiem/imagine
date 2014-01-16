@@ -249,6 +249,8 @@ public class ImImage implements OnBitmapLoaded {
 	public void edgeEffect(int edgeThickness) {
 		ImJniImageProcessing.edgeEffect(procImageMat.nativeObj, procImageMat.nativeObj, edgeThickness);
 		
+		Imgproc.cvtColor(procImageMat, procImageMat, Imgproc.COLOR_GRAY2RGB);
+		
 		Utils.matToBitmap(procImageMat, scaledBitmap);
 		
 		this.notifyOnImageManipulated();

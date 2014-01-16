@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">imagine</string>
+    <string name="app_name">imagine old</string>
+    <string name="title_activity_edit_image">imagine</string>
     <string name="action_settings">Settings</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_open_image">Open Image</string>
@@ -14,7 +15,6 @@
     <string name="btnOpenImageDesc">Open Image</string>
     <string name="action_save_image">Save</string>
     <string name="chkCartoonize">Cartoonize Image</string>
-    <string name="title_activity_edit_image">Edit Images</string>
     <string name="btnApply">Apply Effect</string>
     
     <string name="headingCartoonize">Cartoon Effect</string>

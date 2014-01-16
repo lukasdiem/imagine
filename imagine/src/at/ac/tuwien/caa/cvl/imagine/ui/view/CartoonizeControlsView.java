@@ -80,7 +80,8 @@ public class CartoonizeControlsView extends ImImageControls implements OnClickLi
 	}
 	
 	private void cartoonize() {
-		int colorCount = sliderColorCount.getProgress();
+		// Never set the min color value to 0 => app crash!
+		int colorCount = sliderColorCount.getProgress() + 3;
 		int edgeThickness = sliderEdgeThickness.getProgress();
 		float edgeWeight = ((float)sliderEdgeWeight.getProgress() - 10.0f) / 10.0f;
 		

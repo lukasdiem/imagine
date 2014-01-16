@@ -36,6 +36,7 @@ public class EditImageActivity extends ActionBarActivity implements OnClickListe
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		
 		setContentView(R.layout.activity_edit_image);
 		
 		View wholeContent = findViewById(R.id.fragmentEditImage);
